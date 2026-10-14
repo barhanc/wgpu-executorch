@@ -66,9 +66,8 @@ main {
 
 .viewport {
   width: min(800px, 100%, calc(100dvh - 16rem));
-  padding: 1px;
-  background: var(--text);
-  border-radius: calc(var(--radius) + 1px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
 .viewport-inner {

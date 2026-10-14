@@ -103,20 +103,19 @@ export async function startFrameLoop(
     .recordShader(drawDetections, [vidTexture, resTexture, counterBuffer, detsBuffer]);
 
   let running = true;
-  let startTime = 0;
-  let frameCount = 0;
   let smoothedMs = 0;
+  const times: number[] = [];
 
   const onFrame = (now: number): void => {
     if (!running) return;
 
-    // Cumulative-average FPS (frames / elapsed), steady despite callback jitter.
-    if (startTime === 0) {
-      startTime = now;
+    // FPS over a sliding 2s window: smooths a variable-rate camera's jitter
+    // while tracking the current rate (a cumulative average lags behind).
+    times.push(now);
+    while (now - times[0] > 2000) {
+      times.shift();
     }
-    frameCount++;
-    const elapsed = (now - startTime) / 1000;
-    const fps = elapsed > 0 ? frameCount / elapsed : 0;
+    const fps = times.length > 1 ? ((times.length - 1) * 1000) / (now - times[0]) : 0;
 
     // Crop, scale and upload the latest camera frame.
     const minDim = Math.min(video.videoWidth, video.videoHeight);
