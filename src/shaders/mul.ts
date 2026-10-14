@@ -29,38 +29,38 @@ override wg_size: u32 = 256u;
 
 @compute @workgroup_size(wg_size, 1, 1)
 fn main(
-    @builtin(global_invocation_id) gid: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>) {
-    // 2D-folded flat index (lifts the 65535 1D-dispatch cap for large numel).
-    let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
-    if (idx >= out_meta.numel) {
-        return;
-    }
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  // 2D-folded flat index (lifts the 65535 1D-dispatch cap for large numel).
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= out_meta.numel) {
+    return;
+  }
 
-    // Fast path: every input dim matches the output dim -> elementwise.
-    var same = true;
-    for (var d: u32 = 0u; d < out_meta.ndim; d = d + 1u) {
-        if (in1_meta.sizes[d >> 2u][d & 3u] != out_meta.sizes[d >> 2u][d & 3u] ||
-            in2_meta.sizes[d >> 2u][d & 3u] != out_meta.sizes[d >> 2u][d & 3u]) {
-            same = false;
-        }
+  // Fast path: every input dim matches the output dim -> elementwise.
+  var same = true;
+  for (var d: u32 = 0u; d < out_meta.ndim; d = d + 1u) {
+    if (in1_meta.sizes[d >> 2u][d & 3u] != out_meta.sizes[d >> 2u][d & 3u] ||
+      in2_meta.sizes[d >> 2u][d & 3u] != out_meta.sizes[d >> 2u][d & 3u]) {
+      same = false;
     }
-    if (same) {
-        output[idx] = input1[idx] * input2[idx];
-        return;
-    }
+  }
+  if (same) {
+    output[idx] = input1[idx] * input2[idx];
+    return;
+  }
 
-    // Broadcast: out idx -> per-input coord (clamp size-1 dims), relinearize.
-    var rem = idx;
-    var l1: u32 = 0u;
-    var l2: u32 = 0u;
-    for (var d: u32 = 0u; d < out_meta.ndim; d = d + 1u) {
-        let coord = rem / out_meta.strides[d >> 2u][d & 3u];
-        rem = rem % out_meta.strides[d >> 2u][d & 3u];
-        l1 = l1 + min(coord, in1_meta.sizes[d >> 2u][d & 3u] - 1u) * in1_meta.strides[d >> 2u][d & 3u];
-        l2 = l2 + min(coord, in2_meta.sizes[d >> 2u][d & 3u] - 1u) * in2_meta.strides[d >> 2u][d & 3u];
-    }
-    output[idx] = input1[l1] * input2[l2];
+  // Broadcast: out idx -> per-input coord (clamp size-1 dims), relinearize.
+  var rem = idx;
+  var l1: u32 = 0u;
+  var l2: u32 = 0u;
+  for (var d: u32 = 0u; d < out_meta.ndim; d = d + 1u) {
+    let coord = rem / out_meta.strides[d >> 2u][d & 3u];
+    rem = rem % out_meta.strides[d >> 2u][d & 3u];
+    l1 = l1 + min(coord, in1_meta.sizes[d >> 2u][d & 3u] - 1u) * in1_meta.strides[d >> 2u][d & 3u];
+    l2 = l2 + min(coord, in2_meta.sizes[d >> 2u][d & 3u] - 1u) * in2_meta.strides[d >> 2u][d & 3u];
+  }
+  output[idx] = input1[l1] * input2[l2];
 }
 `;
 

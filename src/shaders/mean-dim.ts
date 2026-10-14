@@ -35,9 +35,9 @@ var<workgroup> partials: array<f32, 256>;
 
 @compute @workgroup_size(wg_size)
 fn main(
-    @builtin(workgroup_id) wid: vec3<u32>,
-    @builtin(local_invocation_id) lid: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  @builtin(workgroup_id) wid: vec3<u32>,
+  @builtin(local_invocation_id) lid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
   // One workgroup per output; 2D-fold lifts the 65535 grid cap. \`t\` is uniform
   // across the workgroup, so the early return keeps the barrier in uniform flow.
   let t = wid.x + wid.y * num_workgroups.x;
