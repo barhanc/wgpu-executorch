@@ -14,8 +14,8 @@ const INPUT_SHAPE = [1, 3, 640, 640] as const;
 const OUTPUT_SHAPE = [1, 84, 8400] as const;
 const INPUT_NUMEL = 3 * 640 * 640;
 
-// Deterministic input pattern (must match utils/export_yolo26n.py
-// make_reference_input): value[i] = (i % 251) / 250 - 0.5.
+// Deterministic input pattern (must match make_reference_input in the
+// YOLO26-N export script): value[i] = (i % 251) / 250 - 0.5.
 function makeInput(): Float32Array {
   const arr = new Float32Array(INPUT_NUMEL);
   for (let i = 0; i < INPUT_NUMEL; i++) {

@@ -122,9 +122,8 @@ export type ProgramPool = {
 };
 
 /**
- * The serialized program format — the JSON structure produced by
- * `utils/pte_to_program.py` and consumed by
- * {@link WgpuExecutionContext.recordProgram}.
+ * The serialized program format — the JSON structure produced when converting
+ * a `.pte` model and consumed by {@link WgpuExecutionContext.recordProgram}.
  *
  * A program is a flat, ordered list of operator calls (the "chain") operating
  * on a table of values (tensors, scalars, lists). Each operator's `args` are
