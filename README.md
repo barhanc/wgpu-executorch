@@ -1,4 +1,4 @@
-# wgpu inference engine
+# WebGPU ExecuTorch engine
 
 An exercise based on ExecuTorch.
 
