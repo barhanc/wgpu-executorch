@@ -6,6 +6,11 @@ A pure WebGPU inference engine for PyTorch ExecuTorch `.pte` models, written in
 TypeScript. Kernels are hand-written WGSL; tensors live in GPU buffers and
 operations are executed as recorded command sequences.
 
+> [!TIP]
+> **[Try the live demo →](https://barhanc.github.io/wgpu-executorch/)** — camera-driven
+> object detection (YOLO26-N) and selfie segmentation, running entirely in your browser
+> on WebGPU. Use a WebGPU-capable browser (e.g. Chrome 113+).
+
 > [!WARNING]
 > This is an unfinished, experimental project and a lot of things still break.
 
@@ -139,10 +144,14 @@ const outArray = new Float32Array(outBytes); // [112, 160, 240, 352]
 
 ## Live demos
 
-`example/` contains an interactive browser application with camera-driven demos,
-each one a minimal task under `example/src/tasks/`.
+The demo app is hosted on GitHub Pages:
 
-To run:
+**https://barhanc.github.io/wgpu-executorch/**
+
+`example/` contains the source for that interactive browser application, with
+camera-driven demos, each one a minimal task under `example/src/tasks/`.
+
+To run it locally:
 
 ```bash
 npm run example

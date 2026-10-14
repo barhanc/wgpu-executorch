@@ -112,10 +112,8 @@ function route(): void {
   const task = tasks.find((t) => t.id === id);
   if (task) {
     renderTask(task);
-    document.title = `wgpu inference — ${task.title}`;
   } else {
     renderGallery();
-    document.title = 'wgpu inference — demos';
   }
 }
 
