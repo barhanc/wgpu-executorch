@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CALX — Demo</title>
+    <title>wgpu inference — demos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -13,67 +13,73 @@
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <main>
-      <header>
-        <h1>Calx</h1>
-        <p class="tagline">demo</p>
-      </header>
+    <div id="app"></div>
 
-      <div class="stage">
-        <div class="viewport">
-          <div class="viewport-inner">
-            <video id="video" autoplay playsinline muted></video>
-            <canvas id="view"></canvas>
-            <div class="status">
-              <span class="status-dot" id="status-dot"></span>
-              <span id="status-text">camera offline</span>
-            </div>
-            <div class="metrics" id="fps"></div>
-          </div>
+    <!-- Gallery: a tile per demo task -->
+    <template id="gallery-template">
+      <main>
+        <header>
+          <h1>wgpu inference</h1>
+          <p class="tagline">demo gallery</p>
+        </header>
+
+        <div class="stage">
+          <div class="tiles"></div>
         </div>
+      </main>
+    </template>
 
-        <button id="start-btn" class="action" type="button" aria-label="Start camera">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <rect x="2.5" y="6" width="13" height="12" rx="2.5" />
-            <path d="M15.5 9.5L21.5 6.5v11l-6-3" />
-          </svg>
-        </button>
+    <!-- Task page: camera viewport shared by every demo -->
+    <template id="task-template">
+      <main>
+        <header>
+          <h1>wgpu inference</h1>
+          <p class="tagline"></p>
+        </header>
 
-        <aside class="panel-info">
-          <div class="panel-inner">
-            <h2 class="panel-title">About Calx</h2>
-            <div class="panel-text">
-              <p>
-                Calx is a lightweight, pure WebGPU inference runtime written in TypeScript for
-                executing PyTorch ExecuTorch models directly in the browser. It eschews heavy
-                frameworks, graph compilers, and virtual machines in favor of direct GPUBuffer
-                views, hand-written WGSL compute shaders, and static ahead-of-time memory planning.
-              </p>
-              <p>
-                This demo performs real-time foreground segmentation on live camera video. Camera
-                frames are center-cropped and uploaded directly into WebGPU textures without CPU
-                round-trips. A custom WGSL compute shader unpacks pixels into a planar tensor,
-                evaluates the full PyTorch segmentation model across hand-written convolution and
-                upsampling kernels, and composites the predicted mask over a darkened background.
-              </p>
-              <p>
-                The entire compute pipeline is recorded into WebGPU command buffers once at startup.
-                Each animation frame simply uploads the latest video snapshot, replays the
-                pre-recorded passes, and copies the result directly to the canvas for smooth,
-                zero-allocation inference.
-              </p>
+        <a class="back" href="#/">← all demos</a>
+
+        <div class="stage">
+          <div class="viewport">
+            <div class="viewport-inner">
+              <video autoplay playsinline muted></video>
+              <canvas></canvas>
+              <div class="status">
+                <span class="status-dot"></span>
+                <span class="status-text">camera offline</span>
+              </div>
+              <div class="metrics">
+                <div class="metrics-values"></div>
+                <div class="metrics-tip" role="tooltip"></div>
+              </div>
             </div>
           </div>
-        </aside>
-      </div>
-    </main>
+
+          <button class="action" type="button" aria-label="Start camera">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="2.5" y="6" width="13" height="12" rx="2.5" />
+              <path d="M15.5 9.5L21.5 6.5v11l-6-3" />
+            </svg>
+          </button>
+
+          <aside class="panel-info">
+            <div class="panel-inner">
+              <h2 class="panel-title"></h2>
+              <div class="panel-text">
+                <p class="panel-description"></p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </template>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -2,8 +2,8 @@
  * Preprocess and postprocess compute shaders for the selfie segmentation pipeline.
  */
 
-import type { Shader, Tensor } from '../../src';
-import { createComputeBundle } from '../../src';
+import type { Shader, Tensor } from '../../../../src';
+import { createComputeBundle } from '../../../../src';
 
 /**
  * Preprocess compute shader: reads normalized [0, 1] RGB texels from the video

@@ -1,19 +1,19 @@
 /**
- * Per-frame WebGPU loop for the selfie-segmentation demo.
- *
- * Implements a record-once pipeline:
- * 1. Snapshot centered square from video into persistent video texture.
- * 2. Record preprocess shader (samples video texture -> writes input tensor).
- * 3. Record ExecuTorch model program (input tensor -> output mask tensor).
- * 4. Record postprocess shader (blends video texture with mask -> writes result texture).
- * 5. Per-frame copy result texture to canvas via copyTextureToTexture.
+ * Per-frame WebGPU loop for the YOLO26-N detection demo: a record-once
+ * pipeline (preprocess -> model -> compact -> draw boxes) replayed every
+ * camera frame.
  */
 
-import type { Program } from '../../src';
-import { WgpuExecutionContext } from '../../src';
-import { postprocess, preprocess } from './shaders';
+import { WgpuExecutionContext, type Program } from '../../../../src';
+import {
+  clearDetections,
+  compactDetections,
+  drawDetections,
+  MAX_DETECTIONS,
+  preprocess,
+} from './shaders';
 
-const size = [256, 256];
+const size = [640, 640];
 
 function onNextVideoFrame(video: HTMLVideoElement, callback: (now: number) => void): void {
   if ('requestVideoFrameCallback' in video) {
@@ -27,8 +27,9 @@ function onNextVideoFrame(video: HTMLVideoElement, callback: (now: number) => vo
  * Starts the per-frame loop for the given camera video.
  *
  * @param video The playing camera video to source frames from.
- * @param canvas The canvas element to render the segmented video output to.
- * @param onMetrics Optional callback invoked with smoothed FPS and GPU inference latency in ms.
+ * @param canvas The canvas element to render the graded video output to.
+ * @param onMetrics Optional callback invoked with FPS and total GPU latency
+ * in ms.
  * @returns A stop function that halts the frame loop and cleans up resources.
  */
 export async function startFrameLoop(
@@ -54,7 +55,7 @@ export async function startFrameLoop(
   canvas.width = size[0];
   canvas.height = size[1];
 
-  // Use rgba8unorm so the canvas texture supports COPY_DST (bgra8unorm does not on some backends)
+  // rgba8unorm keeps COPY_DST support (bgra8unorm lacks it on some backends)
   canvasCtx.configure({
     device,
     format: 'rgba8unorm',
@@ -70,51 +71,54 @@ export async function startFrameLoop(
   const vidTexture = device.createTexture({ size, format: 'rgba8unorm', usage: vidUsage });
   const resTexture = device.createTexture({ size, format: 'rgba8unorm', usage: resUsage });
 
-  // OffscreenCanvas used to crop the centred square from the raw video and scale it to
-  // model input size. copyExternalImageToTexture is pixel-for-pixel (no scaling), so we
-  // use drawImage to perform the crop + downscale before uploading to the GPU texture.
+  // Crop + scale the centre square on the CPU: copyExternalImageToTexture cannot scale.
   const cropCanvas = new OffscreenCanvas(size[0], size[1]);
   const cropCtx = cropCanvas.getContext('2d')!;
 
   // Load model program descriptor and weights
   const base = import.meta.env.BASE_URL;
   const [programRes, weightsRes] = await Promise.all([
-    fetch(`${base}assets/selfie-segmentation/program.json`),
-    fetch(`${base}assets/selfie-segmentation/weights.bin`),
+    fetch(`${base}assets/yolo26n/program.json`),
+    fetch(`${base}assets/yolo26n/weights.bin`),
   ]);
 
   if (!programRes.ok || !weightsRes.ok) {
-    throw new Error('failed to fetch selfie segmentation model artifacts');
+    throw new Error('failed to fetch yolo26n model artifacts');
   }
 
   const program = (await programRes.json()) as Program;
   const weights = await weightsRes.arrayBuffer();
 
-  // Record the compute pipeline
+  // Record the full pipeline once: model -> compaction -> draw.
   const ctx = new WgpuExecutionContext(device);
   const inp = ctx.tensor('float32', [1, 3, ...size]);
-  const out = ctx.tensor('float32', [1, 1, ...size]);
+  const out = ctx.tensor('float32', [1, 84, 8400]);
+  const counterBuffer = ctx.storageBuffer(16);
+  const detsBuffer = ctx.storageBuffer(MAX_DETECTIONS * 6 * 4);
   ctx
     .recordShader(preprocess, [vidTexture, inp])
     .recordProgram(program, weights, [inp, out])
-    .recordShader(postprocess, [vidTexture, out, resTexture]);
+    .recordShader(clearDetections, [counterBuffer])
+    .recordShader(compactDetections, [out, counterBuffer, detsBuffer])
+    .recordShader(drawDetections, [vidTexture, resTexture, counterBuffer, detsBuffer]);
 
   let running = true;
-  let inFlight = false;
-  let lastTime = 0;
-  let [smoothedFps, smoothedMs] = [0, 0];
+  let startTime = 0;
+  let frameCount = 0;
+  let smoothedMs = 0;
 
   const onFrame = (now: number): void => {
     if (!running) return;
 
-    if (lastTime > 0) {
-      const fps = 1000 / (now - lastTime);
-      smoothedFps = smoothedFps ? smoothedFps * 0.9 + fps * 0.1 : fps;
+    // Cumulative-average FPS (frames / elapsed), steady despite callback jitter.
+    if (startTime === 0) {
+      startTime = now;
     }
-    lastTime = now;
+    frameCount++;
+    const elapsed = (now - startTime) / 1000;
+    const fps = elapsed > 0 ? frameCount / elapsed : 0;
 
-    // Crop and scale the centred square of the video to 256×256 using drawImage,
-    // then upload the scaled result to the GPU texture.
+    // Crop, scale and upload the latest camera frame.
     const minDim = Math.min(video.videoWidth, video.videoHeight);
     const sx = Math.floor((video.videoWidth - minDim) / 2);
     const sy = Math.floor((video.videoHeight - minDim) / 2);
@@ -125,7 +129,7 @@ export async function startFrameLoop(
     // Re-encode and submit recorded compute commands
     ctx.submit();
 
-    // Copy result texture to canvas (no intermediate blit shader needed)
+    // Blit the result texture to the canvas
     const encoder = device.createCommandEncoder();
     encoder.copyTextureToTexture(
       { texture: resTexture },
@@ -134,15 +138,13 @@ export async function startFrameLoop(
     );
     device.queue.submit([encoder.finish()]);
 
-    // Asynchronous non-blocking GPU latency tracking
-    if (onMetrics && !inFlight) {
-      inFlight = true;
+    // Async GPU latency tracking; barriers settle in submission order (WebGPU spec).
+    if (onMetrics) {
       device.queue.onSubmittedWorkDone().then(() => {
         if (!running) return;
-        inFlight = false;
-        const elapsed = performance.now() - now;
-        smoothedMs = smoothedMs ? smoothedMs * 0.8 + elapsed * 0.2 : elapsed;
-        onMetrics(Math.round(smoothedFps), smoothedMs);
+        const ms = performance.now() - now;
+        smoothedMs = smoothedMs ? smoothedMs * 0.8 + ms * 0.2 : ms;
+        onMetrics(Math.round(fps), smoothedMs);
       });
     }
 

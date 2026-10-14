@@ -1,0 +1,7770 @@
+{
+  "version": "1",
+  "chain": [
+    {
+      "name": "et_vk.prepack.default",
+      "args": [204, 205]
+    },
+    {
+      "name": "et_vk.prepack.default",
+      "args": [206, 207]
+    },
+    {
+      "name": "et_vk.prepack.default",
+      "args": [208, 209]
+    },
+    {
+      "name": "et_vk.prepack.default",
+      "args": [210, 211]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [212, 0, 1, 213, 214, 215, 216, 217, 218, 219]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [219, 220]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [219, 220, 221]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [221, 2, 3, 222, 223, 224, 216, 225, 218, 226]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [226, 227]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [226, 227, 228]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [228, 4, 5, 229, 230, 231, 216, 232, 218, 233]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [233, 234]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [233, 234, 235]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [235, 236, 218, 239]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [238, 8, 9, 240, 241, 242, 216, 243, 218, 244]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [244, 245]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [244, 245, 246]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [246, 10, 11, 247, 248, 249, 216, 250, 218, 251]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [251, 252]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [251, 252, 253]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [238, 253, 218, 254]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [235, 255, 218, 258]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [259, 218, 260]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [260, 6, 7, 261, 262, 263, 216, 264, 218, 265]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [265, 266]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [265, 266, 267]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [267, 12, 13, 268, 269, 270, 216, 271, 218, 272]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [272, 273]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [272, 273, 274]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [274, 14, 15, 275, 276, 277, 216, 278, 218, 279]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [279, 280]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [279, 280, 281]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [281, 282, 218, 285]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [284, 18, 19, 286, 287, 288, 216, 289, 218, 290]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [290, 291]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [290, 291, 292]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [292, 20, 21, 293, 294, 295, 216, 296, 218, 297]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [297, 298]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [297, 298, 299]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [284, 299, 218, 300]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [281, 301, 218, 304]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [305, 218, 306]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [306, 16, 17, 307, 308, 309, 216, 310, 218, 311]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [311, 312]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [311, 312, 313]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [313, 22, 23, 314, 315, 316, 216, 317, 218, 318]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [318, 319]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [318, 319, 320]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [320, 24, 25, 321, 322, 323, 216, 324, 218, 325]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [325, 326]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [325, 326, 327]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [327, 328, 218, 331]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [330, 28, 29, 332, 333, 334, 216, 335, 218, 336]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [336, 337]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [336, 337, 338]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [338, 34, 35, 339, 340, 341, 216, 342, 218, 343]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [343, 344]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [343, 344, 345]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [345, 36, 37, 346, 347, 348, 216, 349, 218, 350]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [350, 351]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [350, 351, 352]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [338, 352, 218, 353]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [353, 38, 39, 354, 355, 356, 216, 357, 218, 358]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [358, 359]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [358, 359, 360]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [360, 40, 41, 361, 362, 363, 216, 364, 218, 365]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [365, 366]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [365, 366, 367]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [353, 367, 218, 368]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [330, 30, 31, 369, 370, 371, 216, 372, 218, 373]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [373, 374]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [373, 374, 375]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [376, 218, 377]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [377, 32, 33, 378, 379, 380, 216, 381, 218, 382]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [382, 383]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [382, 383, 384]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [327, 385, 218, 388]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [389, 218, 390]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [390, 26, 27, 391, 392, 393, 216, 394, 218, 395]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [395, 396]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [395, 396, 397]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [397, 42, 43, 398, 399, 400, 216, 401, 218, 402]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [402, 403]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [402, 403, 404]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [404, 44, 45, 405, 406, 407, 216, 408, 218, 409]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [409, 410]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [409, 410, 411]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [411, 412, 218, 415]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [414, 48, 49, 416, 417, 418, 216, 419, 218, 420]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [420, 421]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [420, 421, 422]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [422, 54, 55, 423, 424, 425, 216, 426, 218, 427]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [427, 428]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [427, 428, 429]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [429, 56, 57, 430, 431, 432, 216, 433, 218, 434]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [434, 435]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [434, 435, 436]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [422, 436, 218, 437]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [437, 58, 59, 438, 439, 440, 216, 441, 218, 442]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [442, 443]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [442, 443, 444]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [444, 60, 61, 445, 446, 447, 216, 448, 218, 449]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [449, 450]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [449, 450, 451]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [437, 451, 218, 452]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [414, 50, 51, 453, 454, 455, 216, 456, 218, 457]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [457, 458]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [457, 458, 459]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [460, 218, 461]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [461, 52, 53, 462, 463, 464, 216, 465, 218, 466]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [466, 467]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [466, 467, 468]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [411, 469, 218, 472]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [473, 218, 474]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [474, 46, 47, 475, 476, 477, 216, 478, 218, 479]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [479, 480]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [479, 480, 481]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [481, 62, 63, 482, 483, 484, 216, 485, 218, 486]
+    },
+    {
+      "name": "aten.max_pool2d_with_indices.default",
+      "args": [486, 487, 488, 489, 490, 216, 493]
+    },
+    {
+      "name": "aten.max_pool2d_with_indices.default",
+      "args": [491, 494, 495, 496, 497, 216, 500]
+    },
+    {
+      "name": "aten.max_pool2d_with_indices.default",
+      "args": [498, 501, 502, 503, 504, 216, 507]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [508, 218, 509]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [509, 64, 65, 510, 511, 512, 216, 513, 218, 514]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [514, 515]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [514, 515, 516]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [516, 481, 218, 517]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [517, 66, 67, 518, 519, 520, 216, 521, 218, 522]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [522, 523]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [522, 523, 524]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [524, 525, 218, 528]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [527, 70, 71, 529, 530, 531, 216, 532, 218, 533]
+    },
+    {
+      "name": "aten.clone.default",
+      "args": [533, 534, 535]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [535, 536, 537]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [537, 538, 539, 543]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [540, 205, 544]
+    },
+    {
+      "name": "aten.permute_copy.default",
+      "args": [544, 545, 546]
+    },
+    {
+      "name": "aten.squeeze_copy.dims",
+      "args": [546, 547, 548]
+    },
+    {
+      "name": "aten.squeeze_copy.dims",
+      "args": [541, 549, 550]
+    },
+    {
+      "name": "aten.bmm.default",
+      "args": [548, 550, 551]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [551, 552, 553]
+    },
+    {
+      "name": "aten._softmax.default",
+      "args": [553, 554, 216, 555]
+    },
+    {
+      "name": "aten.permute_copy.default",
+      "args": [555, 556, 557]
+    },
+    {
+      "name": "aten.squeeze_copy.dims",
+      "args": [542, 558, 559]
+    },
+    {
+      "name": "aten.squeeze_copy.dims",
+      "args": [557, 560, 561]
+    },
+    {
+      "name": "aten.bmm.default",
+      "args": [559, 561, 562]
+    },
+    {
+      "name": "aten.clone.default",
+      "args": [562, 563, 564]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [564, 565, 566]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [542, 567, 568]
+    },
+    {
+      "name": "aten.clone.default",
+      "args": [568, 569, 570]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [570, 74, 75, 571, 572, 573, 216, 574, 575, 576]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [566, 576, 218, 577]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [577, 72, 73, 578, 579, 580, 216, 581, 218, 582]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [527, 582, 218, 583]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [583, 76, 77, 584, 585, 586, 216, 587, 218, 588]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [588, 589]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [588, 589, 590]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [590, 78, 79, 591, 592, 593, 216, 594, 218, 595]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [583, 595, 218, 596]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [524, 597, 218, 600]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [601, 218, 602]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [602, 68, 69, 603, 604, 605, 216, 606, 218, 607]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [607, 608]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [607, 608, 609]
+    },
+    {
+      "name": "aten.upsample_nearest2d.vec",
+      "args": [609, 610, 611, 612]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [613, 218, 614]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [614, 80, 81, 615, 616, 617, 216, 618, 218, 619]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [619, 620]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [619, 620, 621]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [621, 622, 218, 625]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [624, 84, 85, 626, 627, 628, 216, 629, 218, 630]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [630, 631]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [630, 631, 632]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [632, 90, 91, 633, 634, 635, 216, 636, 218, 637]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [637, 638]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [637, 638, 639]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [639, 92, 93, 640, 641, 642, 216, 643, 218, 644]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [644, 645]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [644, 645, 646]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [632, 646, 218, 647]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [647, 94, 95, 648, 649, 650, 216, 651, 218, 652]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [652, 653]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [652, 653, 654]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [654, 96, 97, 655, 656, 657, 216, 658, 218, 659]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [659, 660]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [659, 660, 661]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [647, 661, 218, 662]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [624, 86, 87, 663, 664, 665, 216, 666, 218, 667]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [667, 668]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [667, 668, 669]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [670, 218, 671]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [671, 88, 89, 672, 673, 674, 216, 675, 218, 676]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [676, 677]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [676, 677, 678]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [621, 679, 218, 682]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [683, 218, 684]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [684, 82, 83, 685, 686, 687, 216, 688, 218, 689]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [689, 690]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [689, 690, 691]
+    },
+    {
+      "name": "aten.upsample_nearest2d.vec",
+      "args": [691, 692, 693, 694]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [695, 218, 696]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [696, 98, 99, 697, 698, 699, 216, 700, 218, 701]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [701, 702]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [701, 702, 703]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [703, 704, 218, 707]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [706, 102, 103, 708, 709, 710, 216, 711, 218, 712]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [712, 713]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [712, 713, 714]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [714, 108, 109, 715, 716, 717, 216, 718, 218, 719]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [719, 720]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [719, 720, 721]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [721, 110, 111, 722, 723, 724, 216, 725, 218, 726]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [726, 727]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [726, 727, 728]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [714, 728, 218, 729]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [729, 112, 113, 730, 731, 732, 216, 733, 218, 734]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [734, 735]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [734, 735, 736]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [736, 114, 115, 737, 738, 739, 216, 740, 218, 741]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [741, 742]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [741, 742, 743]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [729, 743, 218, 744]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [706, 104, 105, 745, 746, 747, 216, 748, 218, 749]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [749, 750]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [749, 750, 751]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [752, 218, 753]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [753, 106, 107, 754, 755, 756, 216, 757, 218, 758]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [758, 759]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [758, 759, 760]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [703, 761, 218, 764]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [765, 218, 766]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [766, 100, 101, 767, 768, 769, 216, 770, 218, 771]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [771, 772]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [771, 772, 773]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [773, 116, 117, 774, 775, 776, 216, 777, 218, 778]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [778, 779]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [778, 779, 780]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [781, 218, 782]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [782, 118, 119, 783, 784, 785, 216, 786, 218, 787]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [787, 788]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [787, 788, 789]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [789, 790, 218, 793]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [792, 122, 123, 794, 795, 796, 216, 797, 218, 798]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [798, 799]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [798, 799, 800]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [800, 128, 129, 801, 802, 803, 216, 804, 218, 805]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [805, 806]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [805, 806, 807]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [807, 130, 131, 808, 809, 810, 216, 811, 218, 812]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [812, 813]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [812, 813, 814]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [800, 814, 218, 815]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [815, 132, 133, 816, 817, 818, 216, 819, 218, 820]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [820, 821]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [820, 821, 822]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [822, 134, 135, 823, 824, 825, 216, 826, 218, 827]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [827, 828]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [827, 828, 829]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [815, 829, 218, 830]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [792, 124, 125, 831, 832, 833, 216, 834, 218, 835]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [835, 836]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [835, 836, 837]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [838, 218, 839]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [839, 126, 127, 840, 841, 842, 216, 843, 218, 844]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [844, 845]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [844, 845, 846]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [789, 847, 218, 850]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [851, 218, 852]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [852, 120, 121, 853, 854, 855, 216, 856, 218, 857]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [857, 858]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [857, 858, 859]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [859, 136, 137, 860, 861, 862, 216, 863, 218, 864]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [864, 865]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [864, 865, 866]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [867, 218, 868]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [868, 138, 139, 869, 870, 871, 216, 872, 218, 873]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [873, 874]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [873, 874, 875]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [875, 876, 218, 879]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [878, 142, 143, 880, 881, 882, 216, 883, 218, 884]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [884, 885]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [884, 885, 886]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [886, 144, 145, 887, 888, 889, 216, 890, 218, 891]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [891, 892]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [891, 892, 893]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [878, 893, 218, 894]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [894, 146, 147, 895, 896, 897, 216, 898, 218, 899]
+    },
+    {
+      "name": "aten.clone.default",
+      "args": [899, 900, 901]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [901, 902, 903]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [903, 904, 539, 908]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [905, 207, 909]
+    },
+    {
+      "name": "aten.permute_copy.default",
+      "args": [909, 910, 911]
+    },
+    {
+      "name": "aten.squeeze_copy.dims",
+      "args": [911, 912, 913]
+    },
+    {
+      "name": "aten.squeeze_copy.dims",
+      "args": [906, 914, 915]
+    },
+    {
+      "name": "aten.bmm.default",
+      "args": [913, 915, 916]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [916, 917, 918]
+    },
+    {
+      "name": "aten._softmax.default",
+      "args": [918, 554, 216, 919]
+    },
+    {
+      "name": "aten.permute_copy.default",
+      "args": [919, 920, 921]
+    },
+    {
+      "name": "aten.squeeze_copy.dims",
+      "args": [907, 922, 923]
+    },
+    {
+      "name": "aten.squeeze_copy.dims",
+      "args": [921, 924, 925]
+    },
+    {
+      "name": "aten.bmm.default",
+      "args": [923, 925, 926]
+    },
+    {
+      "name": "aten.clone.default",
+      "args": [926, 927, 928]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [928, 929, 930]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [907, 931, 932]
+    },
+    {
+      "name": "aten.clone.default",
+      "args": [932, 933, 934]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [934, 150, 151, 935, 936, 937, 216, 938, 575, 939]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [930, 939, 218, 940]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [940, 148, 149, 941, 942, 943, 216, 944, 218, 945]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [894, 945, 218, 946]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [946, 152, 153, 947, 948, 949, 216, 950, 218, 951]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [951, 952]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [951, 952, 953]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [953, 154, 155, 954, 955, 956, 216, 957, 218, 958]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [946, 958, 218, 959]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [875, 960, 218, 963]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [964, 218, 965]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [965, 140, 141, 966, 967, 968, 216, 969, 218, 970]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [970, 971]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [970, 971, 972]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [773, 156, 157, 973, 974, 975, 216, 976, 218, 977]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [977, 978]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [977, 978, 979]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [979, 158, 159, 980, 981, 982, 216, 983, 218, 984]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [984, 985]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [984, 985, 986]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [986, 160, 161, 987, 988, 989, 216, 990, 218, 991]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [991, 992, 993]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [859, 162, 163, 994, 995, 996, 216, 997, 218, 998]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [998, 999]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [998, 999, 1000]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1000, 164, 165, 1001, 1002, 1003, 216, 1004, 218, 1005]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1005, 1006]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1005, 1006, 1007]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1007, 166, 167, 1008, 1009, 1010, 216, 1011, 218, 1012]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [1012, 1013, 1014]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [972, 168, 169, 1015, 1016, 1017, 216, 1018, 218, 1019]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1019, 1020]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1019, 1020, 1021]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1021, 170, 171, 1022, 1023, 1024, 216, 1025, 218, 1026]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1026, 1027]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1026, 1027, 1028]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1028, 172, 173, 1029, 1030, 1031, 216, 1032, 218, 1033]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [1033, 1034, 1035]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [1036, 554, 1037]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [773, 174, 175, 1038, 1039, 1040, 216, 1041, 1042, 1043]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1043, 1044]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1043, 1044, 1045]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1045, 176, 177, 1046, 1047, 1048, 216, 1049, 218, 1050]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1050, 1051]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1050, 1051, 1052]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1052, 178, 179, 1053, 1054, 1055, 216, 1056, 1057, 1058]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1058, 1059]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1058, 1059, 1060]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1060, 180, 181, 1061, 1062, 1063, 216, 1064, 218, 1065]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1065, 1066]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1065, 1066, 1067]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1067, 182, 183, 1068, 1069, 1070, 216, 1071, 218, 1072]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [1072, 1073, 1074]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [859, 184, 185, 1075, 1076, 1077, 216, 1078, 575, 1079]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1079, 1080]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1079, 1080, 1081]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1081, 186, 187, 1082, 1083, 1084, 216, 1085, 218, 1086]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1086, 1087]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1086, 1087, 1088]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1088, 188, 189, 1089, 1090, 1091, 216, 1092, 1057, 1093]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1093, 1094]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1093, 1094, 1095]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1095, 190, 191, 1096, 1097, 1098, 216, 1099, 218, 1100]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1100, 1101]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1100, 1101, 1102]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1102, 192, 193, 1103, 1104, 1105, 216, 1106, 218, 1107]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [1107, 1108, 1109]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [972, 194, 195, 1110, 1111, 1112, 216, 1113, 1114, 1115]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1115, 1116]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1115, 1116, 1117]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1117, 196, 197, 1118, 1119, 1120, 216, 1121, 218, 1122]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1122, 1123]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1122, 1123, 1124]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1124, 198, 199, 1125, 1126, 1127, 216, 1128, 1057, 1129]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1129, 1130]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1129, 1130, 1131]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1131, 200, 201, 1132, 1133, 1134, 216, 1135, 218, 1136]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1136, 1137]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1136, 1137, 1138]
+    },
+    {
+      "name": "aten.convolution.default",
+      "args": [1138, 202, 203, 1139, 1140, 1141, 216, 1142, 218, 1143]
+    },
+    {
+      "name": "aten.view_copy.default",
+      "args": [1143, 1144, 1145]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [1146, 554, 1147]
+    },
+    {
+      "name": "aten.unsqueeze_copy.default",
+      "args": [209, 1148, 1149]
+    },
+    {
+      "name": "aten.split_with_sizes_copy.default",
+      "args": [1037, 1150, 218, 1153]
+    },
+    {
+      "name": "aten.clone.default",
+      "args": [1151, 1154, 1155]
+    },
+    {
+      "name": "aten.sub.Tensor",
+      "args": [1149, 1155, 218, 1156]
+    },
+    {
+      "name": "aten.clone.default",
+      "args": [1152, 1157, 1158]
+    },
+    {
+      "name": "aten.add.Tensor",
+      "args": [1149, 1158, 218, 1159]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [1160, 218, 1161]
+    },
+    {
+      "name": "aten.mul.Tensor",
+      "args": [1161, 211, 1162]
+    },
+    {
+      "name": "aten.sigmoid.default",
+      "args": [1147, 1163]
+    },
+    {
+      "name": "aten.clone.default",
+      "args": [1163, 1164, 1165]
+    },
+    {
+      "name": "aten.cat.default",
+      "args": [1166, 218, 1167]
+    }
+  ],
+  "values": [
+    {
+      "type": "tensor",
+      "shape": [16, 3, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 0,
+      "weightsLength": 1728
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 1728,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 1792,
+      "weightsLength": 18432
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 20224,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 20352,
+      "weightsLength": 4096
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 24448,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 48, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 24576,
+      "weightsLength": 12288
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 36864,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [8, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 37120,
+      "weightsLength": 4608
+    },
+    {
+      "type": "tensor",
+      "shape": [8],
+      "dtype": "float32",
+      "weightsOffset": 41728,
+      "weightsLength": 32
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 8, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 41760,
+      "weightsLength": 4608
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 46368,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 46432,
+      "weightsLength": 147456
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 193888,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 194144,
+      "weightsLength": 16384
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 210528,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 96, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 210784,
+      "weightsLength": 49152
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 259936,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 260448,
+      "weightsLength": 18432
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 278880,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 278944,
+      "weightsLength": 18432
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 297376,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 128, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 297504,
+      "weightsLength": 589824
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 887328,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 887840,
+      "weightsLength": 65536
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 953376,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 192, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 953888,
+      "weightsLength": 98304
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 1052192,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 1052704,
+      "weightsLength": 8192
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 1060896,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 1061024,
+      "weightsLength": 8192
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 1069216,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 1069344,
+      "weightsLength": 16384
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 1085728,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 1085984,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 1122848,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 1122976,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 1159840,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 1159968,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 1196832,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 1196960,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 1233824,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 128, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 1233952,
+      "weightsLength": 1179648
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 2413600,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 256, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 2414624,
+      "weightsLength": 262144
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 2676768,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 384, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 2677792,
+      "weightsLength": 393216
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 3071008,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 3072032,
+      "weightsLength": 32768
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 3104800,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 3105056,
+      "weightsLength": 32768
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 3137824,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 3138080,
+      "weightsLength": 65536
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 3203616,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 3204128,
+      "weightsLength": 147456
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 3351584,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 3351840,
+      "weightsLength": 147456
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 3499296,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 3499552,
+      "weightsLength": 147456
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 3647008,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 3647264,
+      "weightsLength": 147456
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 3794720,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 256, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 3794976,
+      "weightsLength": 131072
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 3926048,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 512, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 3926560,
+      "weightsLength": 524288
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 4450848,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 256, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 4451872,
+      "weightsLength": 262144
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 4714016,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 256, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 4715040,
+      "weightsLength": 262144
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 4977184,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 4978208,
+      "weightsLength": 131072
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 5109280,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5110304,
+      "weightsLength": 65536
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 5175840,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 1, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 5176352,
+      "weightsLength": 4608
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 5180960,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5181472,
+      "weightsLength": 131072
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 5312544,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 256, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5313568,
+      "weightsLength": 131072
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 5444640,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 384, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5445152,
+      "weightsLength": 196608
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 5641760,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 192, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5642272,
+      "weightsLength": 98304
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 5740576,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5741088,
+      "weightsLength": 8192
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 5749280,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5749408,
+      "weightsLength": 8192
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 5757600,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5757728,
+      "weightsLength": 16384
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 5774112,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 5774368,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 5811232,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 5811360,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 5848224,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 5848352,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 5885216,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 5885344,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 5922208,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 256, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5922336,
+      "weightsLength": 65536
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 5987872,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 96, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 5988128,
+      "weightsLength": 24576
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 6012704,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 32, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 6012960,
+      "weightsLength": 2048
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 6015008,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 32, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 6015072,
+      "weightsLength": 2048
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 6017120,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 6017184,
+      "weightsLength": 4096
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 6021280,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6021408,
+      "weightsLength": 9216
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 6030624,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6030688,
+      "weightsLength": 9216
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 6039904,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6039968,
+      "weightsLength": 9216
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 6049184,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6049248,
+      "weightsLength": 9216
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 6058464,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6058528,
+      "weightsLength": 147456
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 6205984,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 192, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 6206240,
+      "weightsLength": 98304
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 6304544,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 192, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 6305056,
+      "weightsLength": 98304
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 6403360,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 6403872,
+      "weightsLength": 8192
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 6412064,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 6412192,
+      "weightsLength": 8192
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 6420384,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 6420512,
+      "weightsLength": 16384
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 6436896,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6437152,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 6474016,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6474144,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 6511008,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6511136,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 6548000,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [32, 32, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6548128,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [32],
+      "dtype": "float32",
+      "weightsOffset": 6584992,
+      "weightsLength": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 128, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 6585120,
+      "weightsLength": 589824
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 7174944,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 384, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 7175456,
+      "weightsLength": 393216
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 7568672,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 384, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 7569696,
+      "weightsLength": 393216
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 7962912,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 128, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 7963936,
+      "weightsLength": 294912
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 8258848,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 64, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 8259104,
+      "weightsLength": 294912
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 8554016,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 8554528,
+      "weightsLength": 131072
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 8685600,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 8686624,
+      "weightsLength": 65536
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 8752160,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 1, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 8752672,
+      "weightsLength": 4608
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 8757280,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 8757792,
+      "weightsLength": 131072
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 8888864,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 256, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 8889888,
+      "weightsLength": 131072
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 9020960,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 64, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9021472,
+      "weightsLength": 36864
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 9058336,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9058400,
+      "weightsLength": 9216
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 9067616,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [4, 16, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9067680,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [4],
+      "dtype": "float32",
+      "weightsOffset": 9067936,
+      "weightsLength": 16
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 128, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9067952,
+      "weightsLength": 73728
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 9141680,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9141744,
+      "weightsLength": 9216
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 9150960,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [4, 16, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9151024,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [4],
+      "dtype": "float32",
+      "weightsOffset": 9151280,
+      "weightsLength": 16
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 256, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9151296,
+      "weightsLength": 147456
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 9298752,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [16, 16, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9298816,
+      "weightsLength": 9216
+    },
+    {
+      "type": "tensor",
+      "shape": [16],
+      "dtype": "float32",
+      "weightsOffset": 9308032,
+      "weightsLength": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [4, 16, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9308096,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [4],
+      "dtype": "float32",
+      "weightsOffset": 9308352,
+      "weightsLength": 16
+    },
+    {
+      "type": "tensor",
+      "shape": [64, 1, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9308368,
+      "weightsLength": 2304
+    },
+    {
+      "type": "tensor",
+      "shape": [64],
+      "dtype": "float32",
+      "weightsOffset": 9310672,
+      "weightsLength": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 64, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9310928,
+      "weightsLength": 20480
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9331408,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 1, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9331728,
+      "weightsLength": 2880
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9334608,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 80, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9334928,
+      "weightsLength": 25600
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9360528,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 80, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9360848,
+      "weightsLength": 25600
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9386448,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [128, 1, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9386768,
+      "weightsLength": 4608
+    },
+    {
+      "type": "tensor",
+      "shape": [128],
+      "dtype": "float32",
+      "weightsOffset": 9391376,
+      "weightsLength": 512
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 128, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9391888,
+      "weightsLength": 40960
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9432848,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 1, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9433168,
+      "weightsLength": 2880
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9436048,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 80, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9436368,
+      "weightsLength": 25600
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9461968,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 80, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9462288,
+      "weightsLength": 25600
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9487888,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [256, 1, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9488208,
+      "weightsLength": 9216
+    },
+    {
+      "type": "tensor",
+      "shape": [256],
+      "dtype": "float32",
+      "weightsOffset": 9497424,
+      "weightsLength": 1024
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 256, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9498448,
+      "weightsLength": 81920
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9580368,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 1, 3, 3],
+      "dtype": "float32",
+      "weightsOffset": 9580688,
+      "weightsLength": 2880
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9583568,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 80, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9583888,
+      "weightsLength": 25600
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9609488,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [80, 80, 1, 1],
+      "dtype": "float32",
+      "weightsOffset": 9609808,
+      "weightsLength": 25600
+    },
+    {
+      "type": "tensor",
+      "shape": [80],
+      "dtype": "float32",
+      "weightsOffset": 9635408,
+      "weightsLength": 320
+    },
+    {
+      "type": "tensor",
+      "shape": [],
+      "dtype": "float32",
+      "weightsOffset": 9635728,
+      "weightsLength": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [],
+      "dtype": "float32"
+    },
+    {
+      "type": "tensor",
+      "shape": [],
+      "dtype": "float32",
+      "weightsOffset": 9635732,
+      "weightsLength": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [],
+      "dtype": "float32"
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 8400],
+      "dtype": "float32",
+      "weightsOffset": 9635736,
+      "weightsLength": 67200
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 8400],
+      "dtype": "float32"
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 8400],
+      "dtype": "float32",
+      "weightsOffset": 9702936,
+      "weightsLength": 33600
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 8400],
+      "dtype": "float32"
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 3, 640, 640],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "scalar",
+      "value": false
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "scalar",
+      "value": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 320, 320],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 320, 320],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 320, 320],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 160, 160],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 160, 160],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 160, 160],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 160, 160],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 160, 160],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 160, 160],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [16, 16]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 160, 160],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 160, 160],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensorlist",
+      "items": [237, 238]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 8, 160, 160],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 8, 160, 160],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 8, 160, 160],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 160, 160],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 160, 160],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 160, 160],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 160, 160],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "list",
+      "items": [16, 16]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 160, 160],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 160, 160],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [256, 257]
+    },
+    {
+      "type": "tensorlist",
+      "items": [256, 238, 254]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 48, 160, 160],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 160, 160],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 160, 160],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 160, 160],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [32, 32]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensorlist",
+      "items": [283, 284]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "list",
+      "items": [32, 32]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [302, 303]
+    },
+    {
+      "type": "tensorlist",
+      "items": [302, 284, 300]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 96, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [64, 64]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "tensorlist",
+      "items": [329, 330]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensorlist",
+      "items": [368, 375]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "list",
+      "items": [64, 64]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [386, 387]
+    },
+    {
+      "type": "tensorlist",
+      "items": [386, 330, 384]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 192, 40, 40],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [128, 128]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "tensorlist",
+      "items": [413, 414]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 8
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensorlist",
+      "items": [452, 459]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "list",
+      "items": [128, 128]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [470, 471]
+    },
+    {
+      "type": "tensorlist",
+      "items": [470, 414, 468]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 384, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "list",
+      "items": [5, 5]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "int32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensorlist",
+      "items": [491, 492]
+    },
+    {
+      "type": "list",
+      "items": [5, 5]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "int32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensorlist",
+      "items": [498, 499]
+    },
+    {
+      "type": "list",
+      "items": [5, 5]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "int32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensorlist",
+      "items": [505, 506]
+    },
+    {
+      "type": "tensorlist",
+      "items": [486, 491, 498, 505]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 512, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "list",
+      "items": [128, 128]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "tensorlist",
+      "items": [526, 527]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 2, 128, 400]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 128, 400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [32, 32, 64]
+    },
+    {
+      "type": "scalar",
+      "value": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 32, 400],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 32, 400],
+      "dtype": "float32",
+      "memObjId": 8
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 64, 400],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "tensorlist",
+      "items": [540, 541, 542]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 32, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [0, 1, 3, 2]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 400, 32],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [0]
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 400, 32],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "list",
+      "items": [0]
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 32, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 2, 400, 400]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "scalar",
+      "value": -1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [0, 1, 3, 2]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [0]
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 64, 400],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "list",
+      "items": [0]
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 64, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 64, 400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 128, 20, 20]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "list",
+      "items": [1, 128, 20, 20]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "scalar",
+      "value": 128
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "list",
+      "items": [128, 128]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensorlist",
+      "items": [598, 599]
+    },
+    {
+      "type": "tensorlist",
+      "items": [598, 596]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 8
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "list",
+      "items": [2.0, 2.0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [612, 397]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 384, 40, 40],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [64, 64]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "tensorlist",
+      "items": [623, 624]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensorlist",
+      "items": [662, 669]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "list",
+      "items": [64, 64]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [680, 681]
+    },
+    {
+      "type": "tensorlist",
+      "items": [680, 624, 678]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 192, 40, 40],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "list",
+      "items": [2.0, 2.0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [694, 313]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [32, 32]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensorlist",
+      "items": [705, 706]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensorlist",
+      "items": [744, 751]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "list",
+      "items": [32, 32]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [762, 763]
+    },
+    {
+      "type": "tensorlist",
+      "items": [762, 706, 760]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 96, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensorlist",
+      "items": [780, 691]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 192, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [64, 64]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "tensorlist",
+      "items": [791, 792]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 32, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensorlist",
+      "items": [830, 837]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "list",
+      "items": [64, 64]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensorlist",
+      "items": [848, 849]
+    },
+    {
+      "type": "tensorlist",
+      "items": [848, 792, 846]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 192, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensorlist",
+      "items": [866, 609]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 384, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "list",
+      "items": [128, 128]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 8
+    },
+    {
+      "type": "tensorlist",
+      "items": [877, 878]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 2, 128, 400]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 128, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [32, 32, 64]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 32, 400],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 32, 400],
+      "dtype": "float32",
+      "memObjId": 9
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 64, 400],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "tensorlist",
+      "items": [905, 906, 907]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 32, 400],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [0, 1, 3, 2]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 400, 32],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [0]
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 400, 32],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "list",
+      "items": [0]
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 32, 400],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 2, 400, 400]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [0, 1, 3, 2]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [0]
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 64, 400],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "list",
+      "items": [0]
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 400, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 64, 400],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "tensor",
+      "shape": [2, 64, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 128, 20, 20]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "list",
+      "items": [1, 128, 20, 20]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "list",
+      "items": [128, 128]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [961, 962]
+    },
+    {
+      "type": "tensorlist",
+      "items": [961, 878, 959]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 384, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 5
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 4, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 4, -1]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 4, 6400],
+      "dtype": "float32",
+      "memObjId": 7
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 4, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 4, -1]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 4, 1600],
+      "dtype": "float32",
+      "memObjId": 8
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 16, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 4, 20, 20],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 4, -1]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 4, 400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [993, 1014, 1035]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 4, 8400],
+      "dtype": "float32",
+      "memObjId": 6
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "scalar",
+      "value": 64
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 64, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "scalar",
+      "value": 80
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 80, 80],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 80, -1]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 6400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 128, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 40, 40],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 80, -1]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 1600],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "scalar",
+      "value": 256
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 256, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "list",
+      "items": [1, 1]
+    },
+    {
+      "type": "list",
+      "items": [0, 0]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 20, 20],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "list",
+      "items": [1, 80, -1]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 400],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensorlist",
+      "items": [1074, 1109, 1145]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 8400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "scalar",
+      "value": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 8400],
+      "dtype": "float32",
+      "memObjId": 4
+    },
+    {
+      "type": "list",
+      "items": [2, 2]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 8400],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 8400],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensorlist",
+      "items": [1151, 1152]
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 8400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 8400],
+      "dtype": "float32",
+      "memObjId": 3
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 8400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 2, 8400],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensorlist",
+      "items": [1156, 1159]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 4, 8400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 4, 8400],
+      "dtype": "float32",
+      "memObjId": 2
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 8400],
+      "dtype": "float32",
+      "memObjId": 0
+    },
+    {
+      "type": "null"
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 80, 8400],
+      "dtype": "float32",
+      "memObjId": 1
+    },
+    {
+      "type": "tensorlist",
+      "items": [1162, 1165]
+    },
+    {
+      "type": "tensor",
+      "shape": [1, 84, 8400],
+      "dtype": "float32",
+      "memObjId": 0
+    }
+  ],
+  "inputIds": [212],
+  "outputIds": [1167],
+  "memoryPlan": {
+    "pools": [
+      {
+        "id": 0,
+        "size": 6553600
+      },
+      {
+        "id": 1,
+        "size": 6553600
+      },
+      {
+        "id": 2,
+        "size": 6553600
+      },
+      {
+        "id": 3,
+        "size": 1638400
+      },
+      {
+        "id": 4,
+        "size": 1638400
+      },
+      {
+        "id": 5,
+        "size": 819200
+      },
+      {
+        "id": 6,
+        "size": 409600
+      },
+      {
+        "id": 7,
+        "size": 409600
+      },
+      {
+        "id": 8,
+        "size": 409600
+      },
+      {
+        "id": 9,
+        "size": 102400
+      }
+    ]
+  }
+}
