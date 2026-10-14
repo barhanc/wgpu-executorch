@@ -17,10 +17,9 @@ export const MAX_NDIM = 8;
 
 // prettier-ignore
 export const DTYPE_BYTESIZE: Record<DType, number> = {
-  float32: 4, float16: 2,
-  int32:  4, int8:   1,
-  uint8:  1, bool:   1,
-  float64: 8, int64:  8,
+  float32: 4, float16: 2, float64: 8,
+  int32:   4, int64:   8,
+  int8:    1, uint8:   1, bool:    1,
 } as const;
 
 const STAGING_BUFFER_USAGE = GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST;
