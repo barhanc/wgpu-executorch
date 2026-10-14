@@ -1,5 +1,9 @@
 import type { Tensor, DType } from './tensor';
 
+// ===========================================================================
+// Value types
+// ===========================================================================
+
 /**
  * A tensor value in a serialized program — declares a GPU buffer with its
  * shape, element type, and how the buffer is allocated.
@@ -56,6 +60,21 @@ export type ProgramList = {
 };
 
 /**
+ * A list of tensor value indices used by variadic operators — e.g. the input
+ * tensor list of `aten.cat.default` or the output tensor list of
+ * `aten.split_with_sizes_copy.default`.
+ *
+ * Items are indices into the program's {@link Program.values} table and
+ * resolve to `Tensor` objects at dispatch time.
+ */
+export type ProgramTensorList = {
+  /** Discriminates the tensor-list variant. */
+  readonly type: 'tensorlist';
+  /** Value indices of the tensors in this list. */
+  readonly items: readonly number[];
+};
+
+/**
  * An empty/unused value slot. Reserved by the serializer for optional
  * operator arguments that were omitted (e.g., `memory_format=None` for
  * `clone`). Resolves to `undefined` at dispatch time.
@@ -65,7 +84,12 @@ export type ProgramNull = {
 };
 
 /** Union of all value types in a serialized program. */
-export type ProgramValue = ProgramTensor | ProgramScalar | ProgramList | ProgramNull;
+export type ProgramValue =
+  ProgramTensor | ProgramScalar | ProgramList | ProgramTensorList | ProgramNull;
+
+// ===========================================================================
+// Program structure
+// ===========================================================================
 
 /**
  * A single operator invocation. `name` is the ExecuTorch operator identifier
@@ -141,6 +165,10 @@ export type Program = {
   };
 };
 
+// ===========================================================================
+// Argument resolution
+// ===========================================================================
+
 /**
  * Resolves an operator's value-index args into concrete values.
  *
@@ -149,6 +177,7 @@ export type Program = {
  * - `Tensor` for tensor values (from the `tensors` map)
  * - `number | boolean | string` for scalar values
  * - `number[]` for list values
+ * - `Tensor[]` for tensor-list values (from the `tensors` map)
  * - `undefined` for null values
  *
  * @param op The operator whose args to resolve.
@@ -176,6 +205,19 @@ export function resolveArgs(
         return v.value;
       case 'list':
         return [...v.items];
+      case 'tensorlist': {
+        return v.items.map((idx) => {
+          const item = values[idx];
+          if (item?.type !== 'tensor') {
+            throw new Error(`program: tensorlist item ${idx} is not a tensor (${op.name})`);
+          }
+          const t = tensors.get(idx);
+          if (t === undefined) {
+            throw new Error(`program: no tensor for value ${idx} referenced by '${op.name}'`);
+          }
+          return t;
+        });
+      }
       case 'null':
         return undefined;
     }

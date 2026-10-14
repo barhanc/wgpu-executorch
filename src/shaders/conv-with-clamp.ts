@@ -50,8 +50,8 @@ override wg_size: u32 = 64u;
 
 @compute @workgroup_size(wg_size, 1, 1)
 fn main(
-    @builtin(global_invocation_id) gid: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
   // 2D-folded flat index (lifts the 65535 1D-dispatch cap for large numel).
   let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
   if (idx >= params.numel) {
@@ -79,16 +79,16 @@ fn main(
     let ic = ic_base + ic_local;
     for (var kh: u32 = 0u; kh < params.Kh; kh = kh + 1u) {
       let ih = i32(oh) * i32(params.stride_h) - i32(params.pad_h) +
-          i32(kh) * i32(params.dil_h);
+      i32(kh) * i32(params.dil_h);
       if (ih < 0 || ih >= i32(params.H_in)) {
         continue;
       }
       let in_row = ((n * params.IC + ic) * params.H_in + u32(ih)) * params.W_in;
       let w_row =
-          ((oc * params.ic_per_group + ic_local) * params.Kh + kh) * params.Kw;
+      ((oc * params.ic_per_group + ic_local) * params.Kh + kh) * params.Kw;
       for (var kw: u32 = 0u; kw < params.Kw; kw = kw + 1u) {
         let iw = i32(ow) * i32(params.stride_w) - i32(params.pad_w) +
-            i32(kw) * i32(params.dil_w);
+        i32(kw) * i32(params.dil_w);
         if (iw < 0 || iw >= i32(params.W_in)) {
           continue;
         }
@@ -97,6 +97,154 @@ fn main(
     }
   }
   t_out[idx] = clamp(acc, params.output_min, params.output_max);
+}
+`;
+
+/**
+ * WGSL compute shader for fused convolution with clamp bounds as
+ * implicit-im2col tiled GEMM (groups == 1).
+ *
+ * Source: ExecuTorch (backends/webgpu/runtime/ops/et_vk_conv2d/conv2d_gemm.wgsl)
+ * GitHub: https://github.com/pytorch/executorch/blob/main/backends/webgpu/runtime/ops/et_vk_conv2d/conv2d_gemm.wgsl
+ * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
+ */
+const SHADER_CONV_WITH_CLAMP_GEMM = /* wgsl */ `
+@group(0) @binding(0) var<storage, read_write> t_out: array<f32>;
+@group(0) @binding(1) var<storage, read> t_x: array<f32>;
+@group(0) @binding(2) var<storage, read> t_weight: array<f32>;
+@group(0) @binding(3) var<storage, read> t_bias: array<f32>;
+
+struct Params {
+  N: u32,
+  IC: u32,
+  H_in: u32,
+  W_in: u32,
+  OC: u32,
+  H_out: u32,
+  W_out: u32,
+  Kh: u32,
+  Kw: u32,
+  stride_h: u32,
+  stride_w: u32,
+  pad_h: u32,
+  pad_w: u32,
+  dil_h: u32,
+  dil_w: u32,
+  has_bias: u32,
+  numel: u32,
+  groups: u32,
+  ic_per_group: u32,
+  pad0: u32,
+  pad1: u32,
+  pad2: u32,
+  output_min: f32,
+  output_max: f32,
+}
+@group(0) @binding(4) var<uniform> params: Params;
+
+// Tiled GEMM over implicit im2col (groups == 1): M=OC, N=N*H_out*W_out,
+// K=IC*Kh*Kw. A=weight [OC,K] (contiguous OIHW); B=input sampled on the fly,
+// out-of-range -> 0.0 implements padding. bias per-ROW (OC). Output written
+// NCHW with the clamp bounds applied.
+const TILE: u32 = 32u;
+const RPT: u32 = 4u;
+
+var<workgroup> a_sub: array<array<f32, 32>, 32>;
+var<workgroup> b_sub: array<array<f32, 32>, 32>;
+
+fn gK() -> u32 { return params.IC * params.Kh * params.Kw; }
+fn gN() -> u32 { return params.N * params.H_out * params.W_out; }
+
+fn read_a(m: u32, kk: u32) -> f32 { // weight[OC, IC*Kh*Kw] row-major
+  if (m < params.OC && kk < gK()) {
+    return t_weight[m * gK() + kk];
+  }
+  return 0.0;
+}
+
+fn read_b(kk: u32, n: u32) -> f32 { // im2col sample of input[N,IC,H_in,W_in]
+  if (kk >= gK() || n >= gN()) {
+    return 0.0;
+  }
+  let ohw = params.H_out * params.W_out;
+  let b = n / ohw;
+  let sp = n % ohw;
+  let oh = sp / params.W_out;
+  let ow = sp % params.W_out;
+  let khw = params.Kh * params.Kw;
+  let ic = kk / khw;
+  let r = kk % khw;
+  let kh = r / params.Kw;
+  let kw = r % params.Kw;
+  let ih = i32(oh) * i32(params.stride_h) - i32(params.pad_h) + i32(kh) * i32(params.dil_h);
+  let iw = i32(ow) * i32(params.stride_w) - i32(params.pad_w) + i32(kw) * i32(params.dil_w);
+  if (ih < 0 || ih >= i32(params.H_in) || iw < 0 || iw >= i32(params.W_in)) {
+    return 0.0; // padding
+  }
+  return t_x[((b * params.IC + ic) * params.H_in + u32(ih)) * params.W_in + u32(iw)];
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn main(
+  @builtin(workgroup_id) wg_id: vec3<u32>,
+  @builtin(local_invocation_id) local_id: vec3<u32>) {
+  let M = params.OC;
+  let N = gN();
+  let K = gK();
+  let tile_row0 = wg_id.y * TILE;
+  let tile_col0 = wg_id.x * TILE;
+  let tile_row = local_id.y * RPT;
+  let tile_col = local_id.x * RPT;
+
+  var acc: array<array<f32, 4>, 4>;
+  for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
+    for (var ic: u32 = 0u; ic < RPT; ic = ic + 1u) {
+      acc[ir][ic] = 0.0;
+    }
+  }
+
+  let num_tiles = (K + TILE - 1u) / TILE;
+  for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
+    let k_start = t * TILE;
+    for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
+      let arow = local_id.y * RPT + ir;
+      for (var kk: u32 = 0u; kk < RPT; kk = kk + 1u) {
+        let col = local_id.x * RPT + kk;
+        a_sub[arow][col] = read_a(tile_row0 + arow, k_start + col);
+        b_sub[arow][col] = read_b(k_start + arow, tile_col0 + col);
+      }
+    }
+    workgroupBarrier();
+    for (var k: u32 = 0u; k < TILE; k = k + 1u) {
+      for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
+        let aval = a_sub[tile_row + ir][k];
+        for (var ic: u32 = 0u; ic < RPT; ic = ic + 1u) {
+          acc[ir][ic] = acc[ir][ic] + aval * b_sub[k][tile_col + ic];
+        }
+      }
+    }
+    workgroupBarrier();
+  }
+
+  for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
+    for (var ic: u32 = 0u; ic < RPT; ic = ic + 1u) {
+      let m = tile_row0 + tile_row + ir; // oc
+      let n = tile_col0 + tile_col + ic; // spatial index
+      if (m < M && n < N) {
+        var val = acc[ir][ic];
+        if (params.has_bias != 0u) {
+          val = val + t_bias[m];
+        }
+        let ohw = params.H_out * params.W_out;
+        let b = n / ohw;
+        let sp = n % ohw;
+        let oh = sp / params.W_out;
+        let ow = sp % params.W_out;
+        t_out[((b * params.OC + m) * params.H_out + oh) * params.W_out + ow] =
+        clamp(val, params.output_min, params.output_max);
+      }
+    }
+  }
 }
 `;
 
@@ -205,47 +353,61 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   const numel = outTensor.numel;
   const device = ctx.device;
   const wgSize = 64;
-  const totalWorkgroups = Math.ceil(numel / wgSize);
-  const workgroupCountX = Math.min(totalWorkgroups, 65535);
-  const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
 
   const buffer = new ArrayBuffer(96);
   const u32View = new Uint32Array(buffer);
   const f32View = new Float32Array(buffer);
 
+  // ConvWithClampParams (96 B): geometry, kernel, stride, pad, dilation, flags
+  // prettier-ignore
   u32View.set([
-    n,
-    ic,
-    hIn,
-    wIn,
-    oc,
-    expectedHout,
-    expectedWout,
-    kh,
-    kw,
-    sH,
-    sW,
-    pH,
-    pW,
-    dH,
-    dW,
-    hasBias ? 1 : 0,
-    numel,
-    groups,
-    icPerGroup,
-    0,
-    0,
-    0,
+    n, ic, hIn, wIn,
+    oc, expectedHout, expectedWout,
+    kh, kw,
+    sH, sW,
+    pH, pW,
+    dH, dW,
+    hasBias ? 1 : 0, numel,
+    groups, icPerGroup,
+    0, 0, 0,
   ]);
-  f32View[22] = minVal;
-  f32View[23] = maxVal;
+  f32View[22] = minVal; // output_min
+  f32View[23] = maxVal; // output_max
 
   const uniformBuffer = ctx.uniformBuffer(buffer);
   const biasBuffer = hasBias ? bias.buffer : weight.buffer;
 
+  // Variant selection mirrors the ExecuTorch WebGPU runtime: groups==1 goes
+  // through the implicit-im2col tiled GEMM, grouped/depthwise convs through
+  // the direct kernel.
+  const code = groups === 1 ? SHADER_CONV_WITH_CLAMP_GEMM : SHADER_CONV_WITH_CLAMP;
+
+  let workgroupCountX: number;
+  let workgroupCountY: number;
+  let constants: Record<string, number>;
+
+  if (groups !== 1) {
+    // Direct kernel: one thread per output element, 2D spill
+    const totalWorkgroups = Math.ceil(numel / wgSize);
+    workgroupCountX = Math.min(totalWorkgroups, 65535);
+    workgroupCountY = Math.ceil(totalWorkgroups / 65535);
+    // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
+    constants = { wg_size: wgSize };
+  } else {
+    // GEMM kernel: fixed 8x8 workgroup covering a 32x32 output tile;
+    // grid over (N = batch*H_out*W_out cols, M = OC rows)
+    const tile = 32;
+    workgroupCountX = Math.ceil((n * expectedHout * expectedWout) / tile);
+    workgroupCountY = Math.ceil(oc / tile);
+    if (workgroupCountX > 65535 || workgroupCountY > 65535) {
+      throw new Error(`${name}: GEMM tile grid exceeds dispatch limit`);
+    }
+    constants = {};
+  }
+
   const bundle = createComputeBundle(
     device,
-    SHADER_CONV_WITH_CLAMP,
+    code,
     [
       { binding: 0, buffer: outTensor.buffer },
       { binding: 1, buffer: inTensor.buffer },
@@ -253,8 +415,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
       { binding: 3, buffer: biasBuffer },
       { binding: 4, buffer: uniformBuffer },
     ],
-    // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
-    { wg_size: wgSize }
+    constants
   );
 
   ctx.addDispatch({
@@ -268,10 +429,12 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
 /**
  * WebGPU compute kernel for ExecuTorch `et_vk::conv_with_clamp.default`.
  *
- * Implements 2D direct and grouped convolutions with clamping.
+ * Implements 2D direct and grouped convolutions with clamping. Dense
+ * convolutions are evaluated as implicit-im2col tiled GEMM, grouped and
+ * depthwise convolutions via the direct kernel.
  */
 export const convWithClamp: Shader<ConvWithClampArgs, typeof name> = {
   name,
-  code: SHADER_CONV_WITH_CLAMP,
+  code: { convWithClamp: SHADER_CONV_WITH_CLAMP, convWithClampGemm: SHADER_CONV_WITH_CLAMP_GEMM },
   recordIn,
 };
