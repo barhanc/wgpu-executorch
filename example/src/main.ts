@@ -6,6 +6,12 @@
 import type { Task } from './tasks/types';
 import { tasks } from './tasks';
 
+/** Metrics tooltip lines shared by every task: `[token, description]` pairs. */
+const METRICS_TIP: readonly (readonly [token: string, description: string])[] = [
+  ['FPS', 'live processing rate: video frames processed per second (camera-paced)'],
+  ['MS', 'GPU time per frame; the model alone can do up to 1000 / MS FPS'],
+];
+
 const app = document.getElementById('app') as HTMLElement;
 let cleanup: (() => void) | null = null;
 
@@ -38,12 +44,10 @@ function renderGallery(): void {
 
 function renderTask(task: Task): void {
   const node = cloneTemplate('task-template');
-  fill(node, '.tagline', task.tagline);
-  fill(node, '.panel-title', task.title);
-  fill(node, '.panel-description', task.description);
+  fill(node, '.task-title', task.title);
 
   const tip = node.querySelector('.metrics-tip') as HTMLElement;
-  for (const [token, description] of task.metricsTip) {
+  for (const [token, description] of METRICS_TIP) {
     const line = document.createElement('p');
     const key = document.createElement('b');
     key.textContent = token;
@@ -81,7 +85,8 @@ function renderTask(task: Task): void {
         const stopLoop = await task.startFrameLoop(video, canvas, (fps, ms) => {
           const fpsStr = String(fps).padStart(2, ' ');
           const msStr = ms.toFixed(1).padStart(4, ' ');
-          metricsValues.textContent = `${fpsStr} FPS · ${msStr} MS`;
+          const modelFps = Math.round(1000 / ms);
+          metricsValues.textContent = `${fpsStr} FPS · ${msStr} MS (${modelFps} FPS)`;
         });
         cleanup = () => {
           stopLoop();

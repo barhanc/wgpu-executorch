@@ -23,12 +23,8 @@ export type Task = {
   readonly id: string;
   /** Tile and page title. */
   readonly title: string;
-  /** Short page tagline shown under the logo. */
-  readonly tagline: string;
   /** One-line description shown on the tile and the task page. */
   readonly description: string;
-  /** Metrics tooltip lines: `[token, description]` pairs. */
-  readonly metricsTip: readonly (readonly [token: string, description: string])[];
   /** The task's record-once GPU pipeline. */
   readonly startFrameLoop: StartFrameLoop;
 };
