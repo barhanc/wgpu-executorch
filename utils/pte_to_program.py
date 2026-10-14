@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
 Convert a PyTorch ExecuTorch .pte file (exported for WebGPU) into a
-program.json + weights.bin pair for the calx-wgpu runtime.
+program.json + weights.bin pair for the WebGPU inference runtime.
 
 Usage:
     # Convert an existing .pte
-    python scripts/pte_to_program.py model_webgpu.pte -o output_dir/
+    python utils/pte_to_program.py model_webgpu.pte -o output_dir/
 
     # Export a demo model first, then convert it
-    python scripts/pte_to_program.py --export-demo -o scripts/build/
+    python utils/pte_to_program.py --export-demo -o utils/build/
 
     # Print program.json to stdout after conversion
-    python scripts/pte_to_program.py model_webgpu.pte --print-json
+    python utils/pte_to_program.py model_webgpu.pte --print-json
 
 Setup:
     1. Clone executorch into third-party/:
@@ -330,8 +330,12 @@ def convert_vk_graph_to_program(
             values.append({"type": "scalar", "value": val.string_val})
 
         # --- List types ---
-        elif isinstance(val, (IntList, DoubleList, BoolList, ValueList)):
+        elif isinstance(val, (IntList, DoubleList, BoolList)):
             values.append({"type": "list", "items": list(val.items)})
+        elif isinstance(val, ValueList):
+            # List of value indices (e.g. cat inputs, split outputs) — resolved
+            # to Tensor[] by the runtime
+            values.append({"type": "tensorlist", "items": list(val.items)})
 
         # --- Tensor ---
         elif isinstance(val, VkTensor):
@@ -553,7 +557,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.export_demo:
-        output_dir = args.output or (REPO_ROOT / "scripts" / "build")
+        output_dir = args.output or (REPO_ROOT / "utils" / "build")
         output_dir.mkdir(parents=True, exist_ok=True)
         pte_path = _export_demo(output_dir)
     elif args.input:

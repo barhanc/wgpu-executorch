@@ -1,25 +1,17 @@
-<div align="center">
-  <img src="assets/logo.png" alt="Calx logo" width="420">
-  <br>
-  <img src="assets/title.svg" alt="CALX" width="320">
-</div>
+# wgpu inference engine
 
----
+An exercise based on ExecuTorch.
 
-Calx is a pure WebGPU inference runtime for PyTorch ExecuTorch `.pte` models,
-written in TypeScript. Kernels are hand-written WGSL; tensors live in GPU
-buffers and are executed as recorded command sequences.
+A pure WebGPU inference engine for PyTorch ExecuTorch `.pte` models, written in
+TypeScript. Kernels are hand-written WGSL; tensors live in GPU buffers and
+operations are executed as recorded command sequences.
 
 > [!WARNING]
 > This is an unfinished, experimental project and a lot of things still break.
->
-> It was an excursion into WebGPU-based ML inference engines made for learning
-> purposes. I no longer actively work on this (maybe I will come back) to pursue
-> other interests.
 
 ## Philosophy
 
-Calx is built around a few core architectural principles:
+The engine is built around a few core architectural principles:
 
 - **Radical Minimality**: There is no heavy framework, runtime virtual machine, or complex graph compiler. Tensors map directly to `GPUBuffer` views, and commands record directly into WebGPU passes. The entire runtime layer is thin, predictable, and transparent.
 - **Self-Contained Shader Encapsulation**: Every operator lives in its own dedicated file under `src/shaders/`. All logic needed by an operator—hand-written WGSL kernel source, shape and dtype validation, uniform layout packing, and dispatch geometry—is cleanly collocated in one place.
@@ -35,7 +27,7 @@ npm run example # browser demo at localhost
 ```
 
 ```ts
-import { WgpuExecutionContext, shaders } from 'calx-wgpu';
+import { WgpuExecutionContext, shaders } from 'wgpu-executorch';
 
 const adapter = await navigator.gpu.requestAdapter();
 const device = await adapter.requestDevice();
@@ -68,16 +60,16 @@ You can execute full serialized ExecuTorch models using `recordProgram`. Convert
 
 ```bash
 # Convert an existing .pte model
-python scripts/pte_to_program.py model_webgpu.pte -o model/
+python utils/pte_to_program.py model_webgpu.pte -o model/
 
 # Or export and convert a demo model
-python scripts/pte_to_program.py --export-demo -o scripts/build/
+python utils/pte_to_program.py --export-demo -o utils/build/
 ```
 
 The runtime automatically manages shared GPU memory pools according to the memory plan, uploads constant weights, dispatches the operator chain, and copies outputs back into user tensors:
 
 ```ts
-import { WgpuExecutionContext, type Program } from 'calx-wgpu';
+import { WgpuExecutionContext, type Program } from 'wgpu-executorch';
 
 const adapter = await navigator.gpu.requestAdapter();
 const device = await adapter.requestDevice();
@@ -145,14 +137,16 @@ const outBytes = await out.getData();
 const outArray = new Float32Array(outBytes); // [112, 160, 240, 352]
 ```
 
-## Live Demo: Real-Time Selfie Segmentation
+## Live demos
 
-Calx includes an interactive browser application under `example/` that performs real-time foreground segmentation on live camera input using a PyTorch ExecuTorch model running purely on WebGPU.
+`example/` contains an interactive browser application with camera-driven demos,
+each one a minimal task under `example/src/tasks/`.
 
-To run the demo:
+To run:
 
 ```bash
 npm run example
 ```
 
-Open `http://localhost:5173` in a WebGPU-capable browser (e.g. Chrome 113+ on macOS/Windows/Linux) and click the camera icon.
+Open `http://localhost:5173` in a WebGPU-capable browser (e.g. Chrome 113+ on
+macOS/Windows/Linux), pick a tile, and click the camera icon.

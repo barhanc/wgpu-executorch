@@ -123,7 +123,7 @@ export type ProgramPool = {
 
 /**
  * The serialized program format — the JSON structure produced by
- * `scripts/pte_to_program.py` and consumed by
+ * `utils/pte_to_program.py` and consumed by
  * {@link WgpuExecutionContext.recordProgram}.
  *
  * A program is a flat, ordered list of operator calls (the "chain") operating

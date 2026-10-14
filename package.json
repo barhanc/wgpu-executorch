@@ -1,11 +1,9 @@
 {
-  "name": "calx-wgpu",
+  "name": "wgpu-executorch",
   "version": "0.1.0",
+  "private": true,
   "description": "Pure WebGPU inference runtime for PyTorch ExecuTorch .pte models in TypeScript",
-  "main": "./dist/index.cjs",
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "example": "vite example",
@@ -25,7 +23,14 @@
   ],
   "author": "Bartosz Hanc <bartosz.hanc02@gmail.com>",
   "license": "MIT",
-  "type": "module",
+  "homepage": "https://github.com/barhanc/wgpu-executorch",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barhanc/wgpu-executorch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/barhanc/wgpu-executorch/issues"
+  },
   "devDependencies": {
     "@types/node": "^26.6.3",
     "@typescript-eslint/eslint-plugin": "^8.70.0",
@@ -37,30 +42,9 @@
     "eslint-plugin-prettier": "^5.5.6",
     "lefthook": "^2.1.14",
     "prettier": "^3.9.8",
-    "tsup": "^8.5.1",
     "typescript": "^5.8.2",
     "vite": "^8.3.0",
     "vitest": "^5.0.1",
     "webgpu": "^0.6.1"
-  },
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "files": [
-    "dist"
-  ],
-  "homepage": "https://github.com/barhanc/calx-wgpu",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/barhanc/calx-wgpu.git"
-  },
-  "bugs": {
-    "url": "https://github.com/barhanc/calx-wgpu/issues"
   }
 }

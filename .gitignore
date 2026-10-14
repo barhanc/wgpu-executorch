@@ -10,6 +10,6 @@ coverage
 third-party/
 .vscode/
 *.pte
-!example/assets/selfie-segmentation/*.pte
+*.pt
 .venv/
-scripts/build/
+__pycache__/
