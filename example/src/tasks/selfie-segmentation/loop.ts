@@ -22,7 +22,7 @@ function onNextVideoFrame(video: HTMLVideoElement, callback: (now: number) => vo
  *
  * @param video The playing camera video to source frames from.
  * @param canvas The canvas element to render the segmented video output to.
- * @param onMetrics Optional callback invoked with smoothed FPS and GPU inference latency in ms.
+ * @param onMetrics Optional callback invoked with smoothed FPS and inference time in ms.
  * @returns A stop function that halts the frame loop and cleans up resources.
  */
 export async function startFrameLoop(
@@ -63,6 +63,14 @@ export async function startFrameLoop(
 
   const vidTexture = device.createTexture({ size, format: 'rgba8unorm', usage: vidUsage });
   const resTexture = device.createTexture({ size, format: 'rgba8unorm', usage: resUsage });
+
+  // Frame-completion fence: a 16-byte copy whose mapAsync resolves exactly
+  // when the frame's GPU work has landed.
+  const fenceSrc = device.createBuffer({ size: 16, usage: GPUBufferUsage.COPY_SRC });
+  const fenceDst = device.createBuffer({
+    size: 16,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+  });
 
   // Crop + scale the centre square on the CPU: copyExternalImageToTexture cannot scale.
   const cropCanvas = new OffscreenCanvas(size[0], size[1]);
@@ -105,6 +113,7 @@ export async function startFrameLoop(
       times.shift();
     }
     const fps = times.length > 1 ? ((times.length - 1) * 1000) / (now - times[0]) : 0;
+    const start = performance.now();
 
     // Crop and scale the centred square of the video to 256×256 using drawImage,
     // then upload the scaled result to the GPU texture.
@@ -118,26 +127,31 @@ export async function startFrameLoop(
     // Re-encode and submit recorded compute commands
     ctx.submit();
 
-    // Blit the result texture to the canvas
+    // Blit the result texture to the canvas and append the fence copy
     const encoder = device.createCommandEncoder();
     encoder.copyTextureToTexture(
       { texture: resTexture },
       { texture: canvasCtx.getCurrentTexture() },
       size
     );
+    encoder.copyBufferToBuffer(fenceSrc, 0, fenceDst, 0, 16);
     device.queue.submit([encoder.finish()]);
 
-    // Async GPU latency tracking; barriers settle in submission order (WebGPU spec).
-    if (onMetrics) {
-      device.queue.onSubmittedWorkDone().then(() => {
+    // Inference time runs to the fence: mapAsync resolves exactly when the
+    // copy lands, unlike onSubmittedWorkDone which can lag to a frame boundary.
+    void fenceDst.mapAsync(GPUMapMode.READ).then(
+      () => {
         if (!running) return;
-        const ms = performance.now() - now;
-        smoothedMs = smoothedMs ? smoothedMs * 0.8 + ms * 0.2 : ms;
-        onMetrics(Math.round(fps), smoothedMs);
-      });
-    }
-
-    onNextVideoFrame(video, onFrame);
+        fenceDst.unmap();
+        if (onMetrics) {
+          const ms = performance.now() - start;
+          smoothedMs = smoothedMs ? smoothedMs * 0.8 + ms * 0.2 : ms;
+          onMetrics(Math.round(fps), smoothedMs);
+        }
+        onNextVideoFrame(video, onFrame);
+      },
+      () => {} // loop stopped with the fence pending
+    );
   };
 
   onNextVideoFrame(video, onFrame);
@@ -147,5 +161,7 @@ export async function startFrameLoop(
     ctx.destroy();
     vidTexture.destroy();
     resTexture.destroy();
+    fenceSrc.destroy();
+    fenceDst.destroy();
   };
 }

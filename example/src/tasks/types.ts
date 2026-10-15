@@ -4,7 +4,7 @@
  * a `startFrameLoop` implementation plus the page copy.
  */
 
-/** Per-frame metrics callback: smoothed FPS and total GPU latency in ms. */
+/** Per-frame metrics callback: smoothed FPS and inference time in ms. */
 export type MetricsFn = (fps: number, ms: number) => void;
 
 /**
