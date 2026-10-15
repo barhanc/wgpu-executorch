@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode } from './utils/scalar';
+
 const name = 'aten.constant_pad_nd.default';
 
 /**
@@ -13,8 +15,10 @@ const name = 'aten.constant_pad_nd.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-@group(0) @binding(1) var<storage, read> inp: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read_write> out: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> inp: array<scalar_t>;
 
 // Up to 4D. The handler right-aligns dims into [4] (leading entries = 1, left/
 // right pad = 0 for unpadded/leading dims), so the shader is rank-agnostic and
@@ -75,10 +79,12 @@ fn main(
         + c3;
     out[i] = inp[in_idx];
   } else {
-    out[i] = params.value;
+    out[i] = scalar_t(params.value);
   }
 }
 `;
+
+const CODE = scalarCode(SHADER);
 
 /**
  * Positional argument tuple for `aten::constant_pad_nd.default`:
@@ -99,9 +105,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConstantPadNdArgs): void {
   const [inTensor, pad] = args;
   const [value, outTensor] = args.length === 4 ? [args[2], args[3]] : [0.0, args[2]];
 
-  if (inTensor.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, outTensor]);
 
   const nd = inTensor.shape.length;
   if (nd === 0 || nd > 4) {
@@ -163,7 +167,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConstantPadNdArgs): void {
 
   const bundle = createComputeBundle(
     device,
-    SHADER,
+    CODE[kind],
     [
       { binding: 0, buffer: outTensor.buffer },
       { binding: 1, buffer: inTensor.buffer },
@@ -188,6 +192,6 @@ function recordIn(ctx: WgpuExecutionContext, args: ConstantPadNdArgs): void {
  */
 export const constantPadNd: Shader<ConstantPadNdArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

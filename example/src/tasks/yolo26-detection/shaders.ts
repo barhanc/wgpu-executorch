@@ -25,8 +25,10 @@ export const MAX_DETECTIONS = 64;
 export const preprocess: Shader<[GPUTexture, Tensor]> = {
   name: 'yolo.preprocess',
   code: /* wgsl */ `
+    enable f16;
+
     @group(0) @binding(0) var vid_tex: texture_2d<f32>;
-    @group(0) @binding(1) var<storage, read_write> output: array<f32>;
+    @group(0) @binding(1) var<storage, read_write> output: array<f16>;
 
     @compute @workgroup_size(16, 16)
     fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -40,9 +42,9 @@ export const preprocess: Shader<[GPUTexture, Tensor]> = {
       let hw = dims.x * dims.y;
       let offset = gid.y * dims.x + gid.x;
 
-      output[offset] = pixel.r;
-      output[hw + offset] = pixel.g;
-      output[2u * hw + offset] = pixel.b;
+      output[offset] = f16(pixel.r);
+      output[hw + offset] = f16(pixel.g);
+      output[2u * hw + offset] = f16(pixel.b);
     }
   `,
   recordIn(ctx, [vidTexture, inp]) {
@@ -97,7 +99,9 @@ export const clearDetections: Shader<[GPUBuffer]> = {
 export const compactDetections: Shader<[Tensor, GPUBuffer, GPUBuffer]> = {
   name: 'yolo.compact_detections',
   code: /* wgsl */ `
-    @group(0) @binding(0) var<storage, read> preds: array<f32>;
+    enable f16;
+
+    @group(0) @binding(0) var<storage, read> preds: array<f16>;
     @group(0) @binding(1) var<storage, read_write> counter: array<atomic<u32>>;
     @group(0) @binding(2) var<storage, read_write> dets: array<f32>;
 
@@ -119,7 +123,7 @@ export const compactDetections: Shader<[Tensor, GPUBuffer, GPUBuffer]> = {
       var best: f32 = 0.0;
       var best_class: u32 = 0u;
       for (var c: u32 = 0u; c < num_classes; c = c + 1u) {
-        let s = preds[(4u + c) * num_anchors + a];
+        let s = f32(preds[(4u + c) * num_anchors + a]);
         if (s > best) {
           best = s;
           best_class = c;
@@ -134,17 +138,17 @@ export const compactDetections: Shader<[Tensor, GPUBuffer, GPUBuffer]> = {
         return;
       }
       let b = slot * 6u;
-      dets[b] = preds[a];
-      dets[b + 1u] = preds[num_anchors + a];
-      dets[b + 2u] = preds[2u * num_anchors + a];
-      dets[b + 3u] = preds[3u * num_anchors + a];
+      dets[b] = f32(preds[a]);
+      dets[b + 1u] = f32(preds[num_anchors + a]);
+      dets[b + 2u] = f32(preds[2u * num_anchors + a]);
+      dets[b + 3u] = f32(preds[3u * num_anchors + a]);
       dets[b + 4u] = best;
       dets[b + 5u] = f32(best_class);
     }
   `,
   recordIn(ctx, [preds, counterBuffer, detsBuffer]) {
-    if (preds.dtype !== 'float32') {
-      throw new Error('yolo.compact_detections: predictions must be float32');
+    if (preds.dtype !== 'float16') {
+      throw new Error('yolo.compact_detections: predictions must be float16');
     }
 
     const wgSize = 256;

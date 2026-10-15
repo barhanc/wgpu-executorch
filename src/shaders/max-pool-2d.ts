@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode } from './utils/scalar';
+
 const name = 'aten.max_pool2d_with_indices.default';
 
 /**
@@ -13,6 +15,8 @@ const name = 'aten.max_pool2d_with_indices.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
+alias scalar_t = f32;
+
 struct Params {
   N: u32,
   C: u32,
@@ -32,8 +36,8 @@ struct Params {
   _p1: u32,
 }
 
-@group(0) @binding(0) var<storage, read_write> out_vals: array<f32>;
-@group(0) @binding(1) var<storage, read> inp: array<f32>;
+@group(0) @binding(0) var<storage, read_write> out_vals: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> inp: array<scalar_t>;
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read_write> out_idx: array<i32>;
 
@@ -80,19 +84,21 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       if (iw < 0 || iw >= iW) {
         continue;
       }
-      let v = inp[in_row + u32(iw)];
+      let v = f32(inp[in_row + u32(iw)]);
       if (v > best) {
         best = v;
         best_idx = ih * iW + iw;
       }
     }
   }
-  out_vals[i] = best;
+  out_vals[i] = scalar_t(best);
   if (write_indices != 0u) {
     out_idx[i] = best_idx;
   }
 }
 `;
+
+const CODE = scalarCode(SHADER);
 
 /**
  * Positional argument tuple for `aten::max_pool2d_with_indices.default`:
@@ -129,9 +135,7 @@ function recordIn(ctx: WgpuExecutionContext, args: MaxPool2dArgs): void {
   }
   const [outVals, outIdx] = outs;
 
-  if (inTensor.dtype !== 'float32' || outVals.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 value tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, outVals]);
   if (outIdx.dtype !== 'int32') {
     throw new Error(`${name}: indices output must be int32`);
   }
@@ -189,7 +193,7 @@ function recordIn(ctx: WgpuExecutionContext, args: MaxPool2dArgs): void {
 
   const bundle = createComputeBundle(
     ctx.device,
-    SHADER,
+    CODE[kind],
     [
       { binding: 0, buffer: outVals.buffer },
       { binding: 1, buffer: inTensor.buffer },
@@ -216,6 +220,6 @@ function recordIn(ctx: WgpuExecutionContext, args: MaxPool2dArgs): void {
  */
 export const maxPool2d: Shader<MaxPool2dArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

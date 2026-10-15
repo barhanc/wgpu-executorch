@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode } from './utils/scalar';
+
 const name = 'aten.bmm.default';
 
 /**
@@ -13,6 +15,8 @@ const name = 'aten.bmm.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
+alias scalar_t = f32;
+
 struct Params {
   B: u32,
   M: u32,
@@ -20,9 +24,9 @@ struct Params {
   K: u32,
 };
 
-@group(0) @binding(0) var<storage, read> a: array<f32>;
-@group(0) @binding(1) var<storage, read> b: array<f32>;
-@group(0) @binding(2) var<storage, read_write> out: array<f32>;
+@group(0) @binding(0) var<storage, read> a: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> b: array<scalar_t>;
+@group(0) @binding(2) var<storage, read_write> out: array<scalar_t>;
 @group(0) @binding(3) var<uniform> params: Params;
 
 const TILE: u32 = 32u;
@@ -33,14 +37,14 @@ var<workgroup> b_sub: array<array<f32, 32>, 32>;
 
 fn read_a(base: u32, row: u32, col: u32) -> f32 {
   if (row < params.M && col < params.K) {
-    return a[base + row * params.K + col];
+    return f32(a[base + row * params.K + col]);
   }
   return 0.0;
 }
 
 fn read_b(base: u32, krow: u32, col: u32) -> f32 {
   if (krow < params.K && col < params.N) {
-    return b[base + krow * params.N + col];
+    return f32(b[base + krow * params.N + col]);
   }
   return 0.0;
 }
@@ -97,12 +101,14 @@ fn main(
       let r = tile_row0 + tile_row + ir;
       let c = tile_col0 + tile_col + ic;
       if (r < params.M && c < params.N) {
-        out[out_base + r * params.N + c] = acc[ir][ic];
+        out[out_base + r * params.N + c] = scalar_t(acc[ir][ic]);
       }
     }
   }
 }
 `;
+
+const CODE = scalarCode(SHADER);
 
 /**
  * Positional argument tuple for `aten::bmm.default`:
@@ -119,9 +125,7 @@ export type BmmArgs = readonly [a: Tensor, b: Tensor, out: Tensor];
 function recordIn(ctx: WgpuExecutionContext, args: BmmArgs): void {
   const [a, b, out] = args;
 
-  if (a.dtype !== 'float32' || b.dtype !== 'float32' || out.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [a, b, out]);
   if (a.shape.length !== 3 || b.shape.length !== 3 || out.shape.length !== 3) {
     throw new Error(`${name}: inputs and output must be 3D`);
   }
@@ -139,7 +143,7 @@ function recordIn(ctx: WgpuExecutionContext, args: BmmArgs): void {
 
   const paramsBuffer = ctx.uniformBuffer(new Uint32Array([batch, m, n, k]));
 
-  const bundle = createComputeBundle(ctx.device, SHADER, [
+  const bundle = createComputeBundle(ctx.device, CODE[kind], [
     { binding: 0, buffer: a.buffer },
     { binding: 1, buffer: b.buffer },
     { binding: 2, buffer: out.buffer },
@@ -163,6 +167,6 @@ function recordIn(ctx: WgpuExecutionContext, args: BmmArgs): void {
  */
 export const bmm: Shader<BmmArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

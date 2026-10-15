@@ -4,6 +4,7 @@ import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
 import { encodeTensorMeta, TENSOR_META_WGSL } from './utils/meta';
+import { floatKind, scalarCode } from './utils/scalar';
 
 const name = 'aten.permute_copy.default';
 
@@ -15,8 +16,10 @@ const name = 'aten.permute_copy.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
-@group(0) @binding(0) var<storage, read> input: array<f32>;
-@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read> input: array<scalar_t>;
+@group(0) @binding(1) var<storage, read_write> output: array<scalar_t>;
 
 ${TENSOR_META_WGSL}
 @group(0) @binding(2) var<uniform> out_meta: TensorMeta;
@@ -52,6 +55,8 @@ fn main(
 }
 `;
 
+const CODE = scalarCode(SHADER);
+
 /**
  * Positional argument tuple for `aten::permute_copy.default`:
  * `[in, dims, out]`
@@ -71,9 +76,7 @@ export type PermuteCopyArgs = readonly [
 function recordIn(ctx: WgpuExecutionContext, args: PermuteCopyArgs): void {
   const [inTensor, dims, outTensor] = args;
 
-  if (inTensor.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, outTensor]);
   const rank = inTensor.shape.length;
   if (outTensor.shape.length !== rank) {
     throw new Error(`${name}: output rank != input rank`);
@@ -111,7 +114,7 @@ function recordIn(ctx: WgpuExecutionContext, args: PermuteCopyArgs): void {
 
   const bundle = createComputeBundle(
     ctx.device,
-    SHADER,
+    CODE[kind],
     [
       { binding: 0, buffer: inTensor.buffer },
       { binding: 1, buffer: outTensor.buffer },
@@ -140,6 +143,6 @@ function recordIn(ctx: WgpuExecutionContext, args: PermuteCopyArgs): void {
  */
 export const permuteCopy: Shader<PermuteCopyArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

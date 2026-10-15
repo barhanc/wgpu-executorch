@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode } from './utils/scalar';
+
 const name = 'aten._softmax.default';
 
 /**
@@ -14,6 +16,8 @@ const name = 'aten._softmax.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
+alias scalar_t = f32;
+
 struct Params {
   outer_: u32,
   r_: u32,
@@ -21,8 +25,8 @@ struct Params {
   pad_: u32,
 };
 
-@group(0) @binding(0) var<storage, read> inp: array<f32>;
-@group(0) @binding(1) var<storage, read_write> out: array<f32>;
+@group(0) @binding(0) var<storage, read> inp: array<scalar_t>;
+@group(0) @binding(1) var<storage, read_write> out: array<scalar_t>;
 @group(0) @binding(2) var<uniform> params: Params;
 
 override wg_size: u32 = 256;
@@ -41,7 +45,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   var mx: f32 = -3.4e38;
   var ssum: f32 = 0.0;
   for (var r: u32 = 0u; r < params.r_; r = r + 1u) {
-    let v = inp[base + r * params.inner_];
+    let v = f32(inp[base + r * params.inner_]);
     if (v > mx) {
       ssum = ssum * exp(mx - v);
       mx = v;
@@ -50,10 +54,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   }
   for (var r: u32 = 0u; r < params.r_; r = r + 1u) {
     let idx = base + r * params.inner_;
-    out[idx] = exp(inp[idx] - mx) / ssum;
+    out[idx] = scalar_t(exp(f32(inp[idx]) - mx) / ssum);
   }
 }
 `;
+
+const CODE = scalarCode(SHADER);
 
 /**
  * Positional argument tuple for `aten::_softmax.default`:
@@ -104,9 +110,7 @@ function decompose(
 function recordIn(ctx: WgpuExecutionContext, args: SoftmaxArgs): void {
   const [inTensor, dim, , outTensor] = args;
 
-  if (inTensor.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, outTensor]);
   if (inTensor.shape.length === 0) {
     throw new Error(`${name}: scalar input unsupported`);
   }
@@ -124,7 +128,7 @@ function recordIn(ctx: WgpuExecutionContext, args: SoftmaxArgs): void {
 
   const bundle = createComputeBundle(
     ctx.device,
-    SHADER,
+    CODE[kind],
     [
       { binding: 0, buffer: inTensor.buffer },
       { binding: 1, buffer: outTensor.buffer },
@@ -155,6 +159,6 @@ function recordIn(ctx: WgpuExecutionContext, args: SoftmaxArgs): void {
  */
 export const softmax: Shader<SoftmaxArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode } from './utils/scalar';
+
 const name = 'aten.upsample_nearest2d.vec';
 
 /**
@@ -13,8 +15,10 @@ const name = 'aten.upsample_nearest2d.vec';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-@group(0) @binding(1) var<storage, read> inp: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read_write> out: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> inp: array<scalar_t>;
 
 struct Params {
   N: u32,
@@ -55,6 +59,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 }
 `;
 
+const CODE = scalarCode(SHADER);
+
 /**
  * Positional argument tuple for `aten::upsample_nearest2d.vec`:
  * `[in, output_size, scales, out]`
@@ -75,9 +81,7 @@ export type UpsampleNearest2dArgs = readonly [
 function recordIn(ctx: WgpuExecutionContext, args: UpsampleNearest2dArgs): void {
   const [inTensor, , , outTensor] = args;
 
-  if (inTensor.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, outTensor]);
   if (inTensor.shape.length !== 4 || outTensor.shape.length !== 4) {
     throw new Error(`${name}: input and output must be 4D NCHW`);
   }
@@ -98,7 +102,7 @@ function recordIn(ctx: WgpuExecutionContext, args: UpsampleNearest2dArgs): void 
 
   const bundle = createComputeBundle(
     ctx.device,
-    SHADER,
+    CODE[kind],
     [
       { binding: 0, buffer: outTensor.buffer },
       { binding: 1, buffer: inTensor.buffer },
@@ -124,6 +128,6 @@ function recordIn(ctx: WgpuExecutionContext, args: UpsampleNearest2dArgs): void 
  */
 export const upsampleNearest2d: Shader<UpsampleNearest2dArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

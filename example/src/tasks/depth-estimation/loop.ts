@@ -32,10 +32,17 @@ export async function startFrameLoop(
 ): Promise<() => void> {
   // Acquire WebGPU device
   const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter?.requestDevice();
+  const requiredFeatures: GPUFeatureName[] = [];
+  if (adapter?.features.has('shader-f16')) {
+    requiredFeatures.push('shader-f16');
+  }
+  const device = await adapter?.requestDevice({ requiredFeatures });
 
   if (device === undefined) {
     throw new Error('no WebGPU device');
+  }
+  if (!device.features.has('shader-f16')) {
+    throw new Error('the FP16 example models require the shader-f16 WebGPU feature');
   }
 
   // Configure canvas context
@@ -92,8 +99,9 @@ export async function startFrameLoop(
 
   // Record the compute pipeline
   const ctx = new WgpuExecutionContext(device);
-  const inp = ctx.tensor('float32', [1, 3, ...size]);
-  const out = ctx.tensor('float32', [1, 1, ...size]);
+  // FP16 model: input/output tensors are binary16
+  const inp = ctx.tensor('float16', [1, 3, ...size]);
+  const out = ctx.tensor('float16', [1, 1, ...size]);
   const statsBuffer = ctx.storageBuffer(16);
   ctx
     .recordShader(preprocess, [vidTexture, inp])

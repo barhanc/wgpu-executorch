@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode } from './utils/scalar';
+
 const name = 'aten.relu.default';
 
 /**
@@ -13,8 +15,10 @@ const name = 'aten.relu.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
-@group(0) @binding(0) var<storage, read> input: array<f32>;
-@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read> input: array<scalar_t>;
+@group(0) @binding(1) var<storage, read_write> output: array<scalar_t>;
 
 struct Params {
   num_elements: u32,
@@ -31,9 +35,11 @@ fn main(
   if (idx >= params.num_elements) {
     return;
   }
-  output[idx] = max(input[idx], 0.0);
+  output[idx] = scalar_t(max(f32(input[idx]), 0.0));
 }
 `;
+
+const CODE = scalarCode(SHADER);
 
 /**
  * Positional argument tuple for `aten::relu.default`:
@@ -48,9 +54,7 @@ export type ReluArgs = readonly [inTensor: Tensor, outTensor: Tensor];
  * @param args Positional arguments for the operator.
  */
 function recordIn(ctx: WgpuExecutionContext, [inTensor, outTensor]: ReluArgs): void {
-  if (inTensor.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, outTensor]);
   if (inTensor.numel !== outTensor.numel) {
     throw new Error(`${name}: input numel != output numel`);
   }
@@ -67,7 +71,7 @@ function recordIn(ctx: WgpuExecutionContext, [inTensor, outTensor]: ReluArgs): v
 
   const bundle = createComputeBundle(
     device,
-    SHADER,
+    CODE[kind],
     [
       { binding: 0, buffer: inTensor.buffer },
       { binding: 1, buffer: outTensor.buffer },
@@ -92,6 +96,6 @@ function recordIn(ctx: WgpuExecutionContext, [inTensor, outTensor]: ReluArgs): v
  */
 export const relu: Shader<ReluArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode, variantCode } from './utils/scalar';
+
 const name = 'aten.mm.default';
 
 /**
@@ -14,6 +16,8 @@ const name = 'aten.mm.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER_TILED = /* wgsl */ `
+alias scalar_t = f32;
+
 struct Params {
   M: u32,
   N: u32,
@@ -21,9 +25,9 @@ struct Params {
   pad_: u32,
 };
 
-@group(0) @binding(0) var<storage, read> a: array<f32>;
-@group(0) @binding(1) var<storage, read> b: array<f32>;
-@group(0) @binding(2) var<storage, read_write> out: array<f32>;
+@group(0) @binding(0) var<storage, read> a: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> b: array<scalar_t>;
+@group(0) @binding(2) var<storage, read_write> out: array<scalar_t>;
 @group(0) @binding(3) var<uniform> params: Params;
 
 const TILE: u32 = 32u;
@@ -34,14 +38,14 @@ var<workgroup> b_sub: array<array<f32, 32>, 32>;
 
 fn read_a(row: u32, col: u32) -> f32 {
   if (row < params.M && col < params.K) {
-    return a[row * params.K + col];
+    return f32(a[row * params.K + col]);
   }
   return 0.0;
 }
 
 fn read_b(row: u32, col: u32) -> f32 {
   if (row < params.K && col < params.N) {
-    return b[row * params.N + col];
+    return f32(b[row * params.N + col]);
   }
   return 0.0;
 }
@@ -92,7 +96,7 @@ fn main(
       let r = tile_row0 + tile_row + ir;
       let c = tile_col0 + tile_col + ic;
       if (r < params.M && c < params.N) {
-        out[r * params.N + c] = acc[ir][ic];
+        out[r * params.N + c] = scalar_t(acc[ir][ic]);
       }
     }
   }
@@ -109,6 +113,8 @@ fn main(
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER_VEC4 = /* wgsl */ `
+alias scalar_t = f32;
+
 struct Params {
   M: u32,
   N: u32,
@@ -116,9 +122,9 @@ struct Params {
   pad_: u32,
 };
 
-@group(0) @binding(0) var<storage, read> a: array<vec4<f32>>;
-@group(0) @binding(1) var<storage, read> b: array<vec4<f32>>;
-@group(0) @binding(2) var<storage, read_write> out: array<vec4<f32>>;
+@group(0) @binding(0) var<storage, read> a: array<vec4<scalar_t>>;
+@group(0) @binding(1) var<storage, read> b: array<vec4<scalar_t>>;
+@group(0) @binding(2) var<storage, read_write> out: array<vec4<scalar_t>>;
 @group(0) @binding(3) var<uniform> params: Params;
 
 const TILE: u32 = 32u;
@@ -130,14 +136,14 @@ var<workgroup> b_sub: array<array<vec4<f32>, 8>, 32>;
 
 fn read_a4(row: u32, k4: u32) -> vec4<f32> {
   if (row < params.M && k4 * 4u < params.K) {
-    return a[row * (params.K / 4u) + k4];
+    return vec4<f32>(a[row * (params.K / 4u) + k4]);
   }
   return vec4<f32>(0.0);
 }
 
 fn read_b4(krow: u32, n4: u32) -> vec4<f32> {
   if (krow < params.K && n4 * 4u < params.N) {
-    return b[krow * (params.N / 4u) + n4];
+    return vec4<f32>(b[krow * (params.N / 4u) + n4]);
   }
   return vec4<f32>(0.0);
 }
@@ -184,11 +190,14 @@ fn main(
     let r = tile_row0 + tile_row + ir;
     let c4 = tile_col0_4 + tile_col4;
     if (r < params.M && c4 * 4u < params.N) {
-      out[r * (params.N / 4u) + c4] = acc[ir];
+      out[r * (params.N / 4u) + c4] = vec4<scalar_t>(acc[ir]);
     }
   }
 }
 `;
+
+const CODE_TILED = scalarCode(SHADER_TILED);
+const CODE_VEC4 = scalarCode(SHADER_VEC4);
 
 /**
  * Output tile dimension per workgroup (32x32).
@@ -208,9 +217,6 @@ export type MmArgs = readonly [in1: Tensor, in2: Tensor, out: Tensor];
  * @param args Positional argument tuple for the operator.
  */
 function recordIn(ctx: WgpuExecutionContext, [in1, in2, out]: MmArgs): void {
-  if (in1.dtype !== 'float32' || in2.dtype !== 'float32' || out.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
   if (in1.shape.length !== 2 || in2.shape.length !== 2 || out.shape.length !== 2) {
     throw new Error(`${name}: Tensors must be 2D matrices`);
   }
@@ -233,8 +239,9 @@ function recordIn(ctx: WgpuExecutionContext, [in1, in2, out]: MmArgs): void {
   const workgroupCountY = Math.ceil(m / TILE);
 
   // Use vectorized 128-bit memory loads when K and N are divisible by 4
+  const kind = floatKind(name, [in1, in2, out]);
   const useVec4 = k1 % 4 === 0 && n % 4 === 0;
-  const code = useVec4 ? SHADER_VEC4 : SHADER_TILED;
+  const code = useVec4 ? CODE_VEC4[kind] : CODE_TILED[kind];
 
   const bundle = createComputeBundle(device, code, [
     { binding: 0, buffer: in1.buffer },
@@ -261,6 +268,9 @@ function recordIn(ctx: WgpuExecutionContext, [in1, in2, out]: MmArgs): void {
  */
 export const mm: Shader<MmArgs, typeof name> = {
   name,
-  code: { tiled: SHADER_TILED, vec4: SHADER_VEC4 },
+  code: variantCode({
+    tiled: CODE_TILED,
+    vec4: CODE_VEC4,
+  }),
   recordIn,
 };

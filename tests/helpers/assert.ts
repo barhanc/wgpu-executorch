@@ -1,5 +1,24 @@
 import type { Tensor } from '../../src';
 
+import { f16BitsToF32Array } from './f16';
+
+/**
+ * Reads a tensor from the GPU into float32 values.
+ *
+ * float16 tensors are expanded exactly; all other dtypes are reinterpreted
+ * as float32 (the dtype under test in the float kernel suites).
+ *
+ * @param tensor The tensor to read.
+ * @returns The tensor's values as a Float32Array.
+ */
+export async function readTensorF32(tensor: Tensor): Promise<Float32Array> {
+  const raw = await tensor.getData();
+  if (tensor.dtype === 'float16') {
+    return f16BitsToF32Array(new Uint16Array(raw));
+  }
+  return new Float32Array(raw);
+}
+
 /**
  * Reads a tensor from the GPU and asserts its values are close to expected.
  *
@@ -12,7 +31,7 @@ export async function expectTensorClose(
   expected: number[],
   tolerance = 1e-5
 ): Promise<void> {
-  const actual = new Float32Array(await tensor.getData());
+  const actual = await readTensorF32(tensor);
 
   if (actual.length !== expected.length) {
     throw new Error(`Tensor length mismatch: got ${actual.length}, expected ${expected.length}`);

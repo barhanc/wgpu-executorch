@@ -12,8 +12,10 @@ import { createComputeBundle } from '../../../../src';
 export const preprocess: Shader<[GPUTexture, Tensor]> = {
   name: 'selfie.preprocess',
   code: /* wgsl */ `
+    enable f16;
+
     @group(0) @binding(0) var vid_tex: texture_2d<f32>;
-    @group(0) @binding(1) var<storage, read_write> output: array<f32>;
+    @group(0) @binding(1) var<storage, read_write> output: array<f16>;
 
     @compute @workgroup_size(16, 16)
     fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -27,9 +29,9 @@ export const preprocess: Shader<[GPUTexture, Tensor]> = {
       let hw = dims.x * dims.y;
       let offset = gid.y * dims.x + gid.x;
 
-      output[offset] = pixel.r;
-      output[hw + offset] = pixel.g;
-      output[2u * hw + offset] = pixel.b;
+      output[offset] = f16(pixel.r);
+      output[hw + offset] = f16(pixel.g);
+      output[2u * hw + offset] = f16(pixel.b);
     }
   `,
   recordIn(ctx, [vidTexture, inp]) {
@@ -56,8 +58,10 @@ export const preprocess: Shader<[GPUTexture, Tensor]> = {
 export const postprocess: Shader<[GPUTexture, Tensor, GPUTexture]> = {
   name: 'selfie.postprocess',
   code: /* wgsl */ `
+    enable f16;
+
     @group(0) @binding(0) var vid_tex: texture_2d<f32>;
-    @group(0) @binding(1) var<storage, read> mask: array<f32>;
+    @group(0) @binding(1) var<storage, read> mask: array<f16>;
     @group(0) @binding(2) var res_tex: texture_storage_2d<rgba8unorm, write>;
 
     @compute @workgroup_size(16, 16)
@@ -68,7 +72,7 @@ export const postprocess: Shader<[GPUTexture, Tensor, GPUTexture]> = {
       }
 
       let offset = gid.y * dims.x + gid.x;
-      let m = clamp(mask[offset], 0.0, 1.0);
+      let m = clamp(f32(mask[offset]), 0.0, 1.0);
 
       // Very dark background with slight transparency (premultiplied alpha)
       let bg_alpha = 0.8;

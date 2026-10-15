@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, it } from 'vitest';
 
 import { WgpuExecutionContext, type Program } from '../../src';
-import { setupGPU } from '../helpers';
+import { f32ToF16Array, readTensorF32, setupGPU } from '../helpers';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
 const PROGRAM_PATH = resolve(REPO_ROOT, 'example/public/assets/yolo26n/program.json');
@@ -42,14 +42,16 @@ describe('yolo26n program (full ExecuTorch graph)', () => {
       const program = JSON.parse(readFileSync(PROGRAM_PATH, 'utf8')) as Program;
       const weights = readArrayBuffer(WEIGHTS_PATH);
 
-      const inp = ctx.tensor('float32', [...INPUT_SHAPE]).setData(makeInput());
-      const out = ctx.tensor('float32', [...OUTPUT_SHAPE]);
+      // FP16 model: inputs are uploaded as binary16 (matching the PyTorch
+      // half reference, which rounds the deterministic pattern to f16).
+      const inp = ctx.tensor('float16', [...INPUT_SHAPE]).setData(f32ToF16Array(makeInput()));
+      const out = ctx.tensor('float16', [...OUTPUT_SHAPE]);
 
       ctx.recordProgram(program, weights, [inp, out]);
       ctx.submit();
       await ctx.sync();
 
-      const actual = new Float32Array(await out.getData());
+      const actual = await readTensorF32(out);
       const expected = new Float32Array(readArrayBuffer(REFERENCE_PATH));
 
       if (actual.length !== expected.length) {
@@ -58,29 +60,30 @@ describe('yolo26n program (full ExecuTorch graph)', () => {
         );
       }
 
-      // Box coordinates span [0, 640] and class scores are sigmoid outputs in
-      // [0, 1]; fp32 accumulation-order differences between CPU torch and GPU
-      // warrant an absolute tolerance well above elementwise epsilon but far
-      // below any real detection error.
+      // Both sides compute in f32 and round every layer to binary16; the
+      // residual drift accumulates over the 397-op graph and is bounded by the
+      // precision of the output scale: box coordinates (channels 0-3) reach
+      // ~860 (binary16 ULP 0.5 there), class scores (channels 4-83) are
+      // sigmoid outputs in [0, 1].
       let maxDiff = 0;
       let maxIdx = 0;
       let beyondTol = 0;
-      const tolerance = 0.01;
       for (let i = 0; i < actual.length; i++) {
         const diff = Math.abs(actual[i] - expected[i]);
         if (diff > maxDiff) {
           maxDiff = diff;
           maxIdx = i;
         }
+        const tolerance = Math.floor(i / 8400) < 4 ? 2.0 : 0.01;
         if (diff > tolerance) {
           beyondTol++;
         }
       }
 
-      if (beyondTol > 0 || maxDiff > tolerance) {
+      if (beyondTol > 0) {
         throw new Error(
           `Output mismatch: ${beyondTol}/${actual.length} elements exceed tolerance ` +
-            `${tolerance} (max diff ${maxDiff.toExponential(3)} at index ${maxIdx}: ` +
+            `(max diff ${maxDiff.toExponential(3)} at index ${maxIdx}: ` +
             `got ${actual[maxIdx]}, expected ${expected[maxIdx]})`
         );
       }

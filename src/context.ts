@@ -165,6 +165,10 @@ export class WgpuExecutionContext {
    * queue. The copy is encoded and submitted when {@link submit} is called,
    * preserving ordering relative to recorded dispatches.
    *
+   * Copies are padded to 4-byte alignment (WebGPU copy granularity), so up to
+   * three bytes past the tensor's data may be written — harmless padding
+   * within the backing buffer (see {@link Tensor.setData}).
+   *
    * @param src Source tensor to copy from.
    * @param dst Destination tensor to copy to.
    * @returns This context instance.
@@ -180,9 +184,14 @@ export class WgpuExecutionContext {
     if (dst.byteLength < src.byteLength) {
       throw new Error(`copy: destination (${dst.byteLength}B) < source (${src.byteLength}B)`);
     }
+    const alignedSize = Math.ceil(src.byteLength / 4) * 4;
+    const size = Math.min(alignedSize, src.buffer.size, dst.buffer.size);
+    if (size < src.byteLength || size % 4 !== 0) {
+      throw new Error(`copy: cannot copy ${src.byteLength}B within 4-byte aligned buffers`);
+    }
     this.#commands.push({
       kind: 'copy',
-      copy: { src: src.buffer, dst: dst.buffer, size: src.byteLength },
+      copy: { src: src.buffer, dst: dst.buffer, size },
     });
     return this;
   }

@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode } from './utils/scalar';
+
 const name = 'aten.mean.dim';
 
 /**
@@ -13,6 +15,8 @@ const name = 'aten.mean.dim';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
+alias scalar_t = f32;
+
 struct Params {
   outer_: u32,
   r_: u32,
@@ -20,8 +24,8 @@ struct Params {
   is_mean: u32,
 };
 
-@group(0) @binding(0) var<storage, read> inp: array<f32>;
-@group(0) @binding(1) var<storage, read_write> out: array<f32>;
+@group(0) @binding(0) var<storage, read> inp: array<scalar_t>;
+@group(0) @binding(1) var<storage, read_write> out: array<scalar_t>;
 @group(0) @binding(2) var<uniform> params: Params;
 
 override wg_size: u32 = 256;
@@ -52,7 +56,7 @@ fn main(
   var acc: f32 = 0.0;
   var k: u32 = lid.x;
   while (k < params.r_) {
-    acc = acc + inp[base + k * params.inner_];
+    acc = acc + f32(inp[base + k * params.inner_]);
     k = k + wg_size;
   }
   partials[lid.x] = acc;
@@ -66,10 +70,12 @@ fn main(
     if (params.is_mean == 1u) {
       s = s / f32(params.r_);
     }
-    out[t] = s;
+    out[t] = scalar_t(s);
   }
 }
 `;
+
+const CODE = scalarCode(SHADER);
 
 /**
  * Positional argument tuple for `aten::mean.dim`:
@@ -147,9 +153,7 @@ function recordIn(ctx: WgpuExecutionContext, args: MeanDimArgs): void {
   const dim = args[1];
   const outTensor = args[4];
 
-  if (inTensor.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, outTensor]);
   if (inTensor.shape.length === 0) {
     throw new Error(`${name}: scalar input unsupported`);
   }
@@ -182,7 +186,7 @@ function recordIn(ctx: WgpuExecutionContext, args: MeanDimArgs): void {
 
   const bundle = createComputeBundle(
     device,
-    SHADER,
+    CODE[kind],
     [
       { binding: 0, buffer: inTensor.buffer },
       { binding: 1, buffer: outTensor.buffer },
@@ -207,6 +211,6 @@ function recordIn(ctx: WgpuExecutionContext, args: MeanDimArgs): void {
  */
 export const meanDim: Shader<MeanDimArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

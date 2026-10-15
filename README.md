@@ -69,7 +69,15 @@ python utils/pte_to_program.py model_webgpu.pte -o model/
 
 # Or export and convert a demo model
 python utils/pte_to_program.py --export-demo -o utils/build/
+
+# Or reexport a converted program in FP16 precision
+python utils/reexport_fp16.py model/
 ```
+
+Kernels dispatch against either float32 or float16 tensor storage: values are
+loaded into f32 registers (all math, including accumulation, runs in f32) and
+rounded back to the storage type on store. FP16 programs need the `shader-f16`
+device feature.
 
 The runtime automatically manages shared GPU memory pools according to the memory plan, uploads constant weights, dispatches the operator chain, and copies outputs back into user tensors:
 
@@ -149,7 +157,10 @@ The demo app is hosted on GitHub Pages:
 **https://barhanc.github.io/wgpu-executorch/**
 
 `example/` contains the source for that interactive browser application, with
-camera-driven demos, each one a minimal task under `example/src/tasks/`.
+camera-driven demos, each one a minimal task under `example/src/tasks/`. All
+three example models (YOLO26-N, selfie segmentation, DepthART) are reexported
+in FP16 — binary16 weights and activations with f32 accumulation — and need
+the `shader-f16` WebGPU feature.
 
 To run it locally:
 

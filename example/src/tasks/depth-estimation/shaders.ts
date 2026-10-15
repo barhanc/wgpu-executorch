@@ -14,8 +14,10 @@ import { createComputeBundle } from '../../../../src';
 export const preprocess: Shader<[GPUTexture, Tensor]> = {
   name: 'depth.preprocess',
   code: /* wgsl */ `
+    enable f16;
+
     @group(0) @binding(0) var vid_tex: texture_2d<f32>;
-    @group(0) @binding(1) var<storage, read_write> output: array<f32>;
+    @group(0) @binding(1) var<storage, read_write> output: array<f16>;
 
     @compute @workgroup_size(16, 16)
     fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -29,9 +31,9 @@ export const preprocess: Shader<[GPUTexture, Tensor]> = {
       let hw = dims.x * dims.y;
       let offset = gid.y * dims.x + gid.x;
 
-      output[offset] = (pixel.r - 0.485) / 0.229;
-      output[hw + offset] = (pixel.g - 0.456) / 0.224;
-      output[2u * hw + offset] = (pixel.b - 0.406) / 0.225;
+      output[offset] = f16((pixel.r - 0.485) / 0.229);
+      output[hw + offset] = f16((pixel.g - 0.456) / 0.224);
+      output[2u * hw + offset] = f16((pixel.b - 0.406) / 0.225);
     }
   `,
   recordIn(ctx, [vidTexture, inp]) {
@@ -89,7 +91,9 @@ export const clearStats: Shader<[GPUBuffer]> = {
 export const depthStats: Shader<[Tensor, GPUBuffer]> = {
   name: 'depth.stats',
   code: /* wgsl */ `
-    @group(0) @binding(0) var<storage, read> depth: array<f32>;
+    enable f16;
+
+    @group(0) @binding(0) var<storage, read> depth: array<f16>;
     @group(0) @binding(1) var<storage, read_write> stats: array<atomic<u32>>;
 
     override wg_size: u32 = 256;
@@ -112,7 +116,7 @@ export const depthStats: Shader<[Tensor, GPUBuffer]> = {
       var k_min = 0xffffffffu;
       var k_max = 0x00000000u;
       if (idx < arrayLength(&depth)) {
-        let k = key(depth[idx]);
+        let k = key(f32(depth[idx]));
         k_min = k;
         k_max = k;
       }
@@ -167,7 +171,9 @@ export const depthStats: Shader<[Tensor, GPUBuffer]> = {
 export const drawDepth: Shader<[Tensor, GPUBuffer, GPUTexture]> = {
   name: 'depth.draw',
   code: /* wgsl */ `
-    @group(0) @binding(0) var<storage, read> depth: array<f32>;
+    enable f16;
+
+    @group(0) @binding(0) var<storage, read> depth: array<f16>;
     @group(0) @binding(1) var<storage, read> stats: array<u32>;
     @group(0) @binding(2) var res_tex: texture_storage_2d<rgba8unorm, write>;
 
@@ -187,7 +193,7 @@ export const drawDepth: Shader<[Tensor, GPUBuffer, GPUTexture]> = {
       let lo = unkey(stats[0]);
       let hi = unkey(stats[1]);
       let offset = gid.y * dims.x + gid.x;
-      let t = clamp((depth[offset] - lo) / max(hi - lo, 1e-6), 0.0, 1.0);
+      let t = clamp((f32(depth[offset]) - lo) / max(hi - lo, 1e-6), 0.0, 1.0);
 
       let gray = 1.0 - t;
       textureStore(res_tex, vec2<i32>(gid.xy), vec4<f32>(gray, gray, gray, 1.0));

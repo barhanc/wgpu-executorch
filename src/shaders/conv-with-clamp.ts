@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode, variantCode } from './utils/scalar';
+
 const name = 'et_vk.conv_with_clamp.default';
 
 /**
@@ -13,10 +15,12 @@ const name = 'et_vk.conv_with_clamp.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER_CONV_WITH_CLAMP = /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> t_out: array<f32>;
-@group(0) @binding(1) var<storage, read> t_x: array<f32>;
-@group(0) @binding(2) var<storage, read> t_weight: array<f32>;
-@group(0) @binding(3) var<storage, read> t_bias: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read_write> t_out: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> t_x: array<scalar_t>;
+@group(0) @binding(2) var<storage, read> t_weight: array<scalar_t>;
+@group(0) @binding(3) var<storage, read> t_bias: array<scalar_t>;
 
 struct Params {
   N: u32,
@@ -67,7 +71,7 @@ fn main(
 
   var acc: f32 = 0.0;
   if (params.has_bias != 0u) {
-    acc = t_bias[oc];
+    acc = f32(t_bias[oc]);
   }
   // Grouped conv: output channel oc belongs to group g and dots only that
   // group's ic_per_group input channels. weight is [OC, IC/groups, Kh, Kw];
@@ -92,11 +96,11 @@ fn main(
         if (iw < 0 || iw >= i32(params.W_in)) {
           continue;
         }
-        acc = acc + t_x[in_row + u32(iw)] * t_weight[w_row + kw];
+        acc = acc + f32(t_x[in_row + u32(iw)]) * f32(t_weight[w_row + kw]);
       }
     }
   }
-  t_out[idx] = clamp(acc, params.output_min, params.output_max);
+  t_out[idx] = scalar_t(clamp(acc, params.output_min, params.output_max));
 }
 `;
 
@@ -109,10 +113,12 @@ fn main(
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER_CONV_WITH_CLAMP_GEMM = /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> t_out: array<f32>;
-@group(0) @binding(1) var<storage, read> t_x: array<f32>;
-@group(0) @binding(2) var<storage, read> t_weight: array<f32>;
-@group(0) @binding(3) var<storage, read> t_bias: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read_write> t_out: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> t_x: array<scalar_t>;
+@group(0) @binding(2) var<storage, read> t_weight: array<scalar_t>;
+@group(0) @binding(3) var<storage, read> t_bias: array<scalar_t>;
 
 struct Params {
   N: u32,
@@ -157,7 +163,7 @@ fn gN() -> u32 { return params.N * params.H_out * params.W_out; }
 
 fn read_a(m: u32, kk: u32) -> f32 { // weight[OC, IC*Kh*Kw] row-major
   if (m < params.OC && kk < gK()) {
-    return t_weight[m * gK() + kk];
+    return f32(t_weight[m * gK() + kk]);
   }
   return 0.0;
 }
@@ -181,7 +187,7 @@ fn read_b(kk: u32, n: u32) -> f32 { // im2col sample of input[N,IC,H_in,W_in]
   if (ih < 0 || ih >= i32(params.H_in) || iw < 0 || iw >= i32(params.W_in)) {
     return 0.0; // padding
   }
-  return t_x[((b * params.IC + ic) * params.H_in + u32(ih)) * params.W_in + u32(iw)];
+  return f32(t_x[((b * params.IC + ic) * params.H_in + u32(ih)) * params.W_in + u32(iw)]);
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -233,7 +239,7 @@ fn main(
       if (m < M && n < N) {
         var val = acc[ir][ic];
         if (params.has_bias != 0u) {
-          val = val + t_bias[m];
+          val = val + f32(t_bias[m]);
         }
         let ohw = params.H_out * params.W_out;
         let b = n / ohw;
@@ -241,12 +247,15 @@ fn main(
         let oh = sp / params.W_out;
         let ow = sp % params.W_out;
         t_out[((b * params.OC + m) * params.H_out + oh) * params.W_out + ow] =
-        clamp(val, params.output_min, params.output_max);
+        scalar_t(clamp(val, params.output_min, params.output_max));
       }
     }
   }
 }
 `;
+
+const CODE_CONV_WITH_CLAMP = scalarCode(SHADER_CONV_WITH_CLAMP);
+const CODE_CONV_WITH_CLAMP_GEMM = scalarCode(SHADER_CONV_WITH_CLAMP_GEMM);
 
 /**
  * Positional argument tuple for `et_vk::conv_with_clamp.default`:
@@ -295,9 +304,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
     outTensor,
   ] = args;
 
-  if (inTensor.dtype !== 'float32' || weight.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, weight, bias, outTensor]);
   if (inTensor.shape.length !== 4 || weight.shape.length !== 4 || outTensor.shape.length !== 4) {
     throw new Error(`${name}: expected 4D tensors for input, weight, and output`);
   }
@@ -380,7 +387,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   // Variant selection mirrors the ExecuTorch WebGPU runtime: groups==1 goes
   // through the implicit-im2col tiled GEMM, grouped/depthwise convs through
   // the direct kernel.
-  const code = groups === 1 ? SHADER_CONV_WITH_CLAMP_GEMM : SHADER_CONV_WITH_CLAMP;
+  const code = groups === 1 ? CODE_CONV_WITH_CLAMP_GEMM[kind] : CODE_CONV_WITH_CLAMP[kind];
 
   let workgroupCountX: number;
   let workgroupCountY: number;
@@ -435,6 +442,9 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
  */
 export const convWithClamp: Shader<ConvWithClampArgs, typeof name> = {
   name,
-  code: { convWithClamp: SHADER_CONV_WITH_CLAMP, convWithClampGemm: SHADER_CONV_WITH_CLAMP_GEMM },
+  code: variantCode({
+    convWithClamp: CODE_CONV_WITH_CLAMP,
+    convWithClampGemm: CODE_CONV_WITH_CLAMP_GEMM,
+  }),
   recordIn,
 };

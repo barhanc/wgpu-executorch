@@ -4,6 +4,7 @@ import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
 import { encodeTensorMeta, TENSOR_META_WGSL } from './utils/meta';
+import { floatKind, scalarCode } from './utils/scalar';
 
 const name = 'aten.split_with_sizes_copy.default';
 
@@ -15,8 +16,10 @@ const name = 'aten.split_with_sizes_copy.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
-@group(0) @binding(0) var<storage, read> input: array<f32>;
-@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read> input: array<scalar_t>;
+@group(0) @binding(1) var<storage, read_write> output: array<scalar_t>;
 
 ${TENSOR_META_WGSL}
 @group(0) @binding(2) var<uniform> out_meta: TensorMeta;
@@ -53,6 +56,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   output[out_bufi] = input[in_bufi];
 }
 `;
+
+const CODE = scalarCode(SHADER);
 
 /**
  * Positional argument tuple for `aten::split_with_sizes_copy.default`:
@@ -97,15 +102,14 @@ function recordIn(ctx: WgpuExecutionContext, args: SplitWithSizesArgs): void {
     throw new Error(`${name}: sizes must sum to the split dim extent`);
   }
 
+  const kind = floatKind(name, [inTensor, ...outs]);
+
   const wgSize = 64;
   const inMetaBuffer = ctx.uniformBuffer(encodeTensorMeta(inTensor));
 
   let start = 0;
   for (let i = 0; i < outs.length; i++) {
     const out = outs[i];
-    if (inTensor.dtype !== 'float32' || out.dtype !== 'float32') {
-      throw new Error(`${name}: Only float32 tensors are currently supported`);
-    }
     if (out.shape[dim] !== splitSizes[i]) {
       throw new Error(`${name}: output ${i} dim ${dim} != split size`);
     }
@@ -116,7 +120,7 @@ function recordIn(ctx: WgpuExecutionContext, args: SplitWithSizesArgs): void {
 
     const bundle = createComputeBundle(
       ctx.device,
-      SHADER,
+      CODE[kind],
       [
         { binding: 0, buffer: inTensor.buffer },
         { binding: 1, buffer: out.buffer },
@@ -149,6 +153,6 @@ function recordIn(ctx: WgpuExecutionContext, args: SplitWithSizesArgs): void {
  */
 export const splitWithSizesCopy: Shader<SplitWithSizesArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

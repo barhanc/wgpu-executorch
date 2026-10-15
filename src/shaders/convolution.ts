@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode, variantCode } from './utils/scalar';
+
 const name = 'aten.convolution.default';
 
 /**
@@ -13,10 +15,12 @@ const name = 'aten.convolution.default';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER_CONV2D = /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-@group(0) @binding(1) var<storage, read> input: array<f32>;
-@group(0) @binding(2) var<storage, read> weight: array<f32>;
-@group(0) @binding(3) var<storage, read> bias: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read_write> out: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> input: array<scalar_t>;
+@group(0) @binding(2) var<storage, read> weight: array<scalar_t>;
+@group(0) @binding(3) var<storage, read> bias: array<scalar_t>;
 
 struct Params {
   B: u32,
@@ -67,7 +71,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
   var acc: f32 = 0.0;
   if (params.has_bias != 0u) {
-    acc = bias[oc];
+    acc = f32(bias[oc]);
   }
 
   let iH = i32(params.IH);
@@ -88,11 +92,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (iw < 0 || iw >= iW) {
           continue;
         }
-        acc = acc + input[in_row + u32(iw)] * weight[w_row + kw];
+        acc = acc + f32(input[in_row + u32(iw)]) * f32(weight[w_row + kw]);
       }
     }
   }
-  out[i] = acc;
+  out[i] = scalar_t(acc);
 }
 `;
 
@@ -104,10 +108,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER_CONV2D_GEMM = /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-@group(0) @binding(1) var<storage, read> input: array<f32>;
-@group(0) @binding(2) var<storage, read> weight: array<f32>;
-@group(0) @binding(3) var<storage, read> bias: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read_write> out: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> input: array<scalar_t>;
+@group(0) @binding(2) var<storage, read> weight: array<scalar_t>;
+@group(0) @binding(3) var<storage, read> bias: array<scalar_t>;
 
 struct Params {
   B: u32, IC: u32, IH: u32, IW: u32,
@@ -132,7 +138,7 @@ fn gN() -> u32 { return params.B * params.OH * params.OW; }
 
 fn read_a(m: u32, kk: u32) -> f32 { // weight[OC, IC*KH*KW] row-major
   if (m < params.OC && kk < gK()) {
-    return weight[m * gK() + kk];
+    return f32(weight[m * gK() + kk]);
   }
   return 0.0;
 }
@@ -156,7 +162,7 @@ fn read_b(kk: u32, n: u32) -> f32 { // im2col sample of input[B,IC,IH,IW]
   if (ih < 0 || ih >= i32(params.IH) || iw < 0 || iw >= i32(params.IW)) {
     return 0.0; // padding
   }
-  return input[((b * params.IC + ic) * params.IH + u32(ih)) * params.IW + u32(iw)];
+  return f32(input[((b * params.IC + ic) * params.IH + u32(ih)) * params.IW + u32(iw)]);
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -208,14 +214,14 @@ fn main(
       if (m < M && n < N) {
         var val = acc[ir][ic];
         if (params.has_bias != 0u) {
-          val = val + bias[m];
+          val = val + f32(bias[m]);
         }
         let ohw = params.OH * params.OW;
         let b = n / ohw;
         let sp = n % ohw;
         let oh = sp / params.OW;
         let ow = sp % params.OW;
-        out[((b * params.OC + m) * params.OH + oh) * params.OW + ow] = val;
+        out[((b * params.OC + m) * params.OH + oh) * params.OW + ow] = scalar_t(val);
       }
     }
   }
@@ -230,10 +236,12 @@ fn main(
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER_CONV_TRANSPOSE2D = /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-@group(0) @binding(1) var<storage, read> input: array<f32>;
-@group(0) @binding(2) var<storage, read> weight: array<f32>;
-@group(0) @binding(3) var<storage, read> bias: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read_write> out: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> input: array<scalar_t>;
+@group(0) @binding(2) var<storage, read> weight: array<scalar_t>;
+@group(0) @binding(3) var<storage, read> bias: array<scalar_t>;
 
 struct Params {
   B: u32,
@@ -288,7 +296,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
   var acc: f32 = 0.0;
   if (params.has_bias != 0u) {
-    acc = bias[oc];
+    acc = f32(bias[oc]);
   }
 
   let iH = i32(params.IH);
@@ -318,13 +326,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // weight [IC, OC/groups, KH, KW]: index (ic, oc_in_g, kh, kw)
         let w_idx =
         ((ic * ocpg + oc_in_g) * params.KH + kh) * params.KW + kw;
-        acc = acc + input[in_idx] * weight[w_idx];
+        acc = acc + f32(input[in_idx]) * f32(weight[w_idx]);
       }
     }
   }
-  out[i] = acc;
+  out[i] = scalar_t(acc);
 }
 `;
+
+const CODE_CONV2D = scalarCode(SHADER_CONV2D);
+const CODE_CONV2D_GEMM = scalarCode(SHADER_CONV2D_GEMM);
+const CODE_CONV_TRANSPOSE2D = scalarCode(SHADER_CONV_TRANSPOSE2D);
 
 /**
  * Positional argument tuple for `aten::convolution.default`:
@@ -369,9 +381,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
     outTensor,
   ] = args;
 
-  if (inTensor.dtype !== 'float32' || weight.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, weight, bias, outTensor]);
   if (inTensor.shape.length !== 4 || weight.shape.length !== 4 || outTensor.shape.length !== 4) {
     throw new Error(`${name}: expected 4D tensors for input, weight, and output`);
   }
@@ -456,11 +466,11 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
   // Variant selection mirrors the ExecuTorch WebGPU runtime: groups==1 goes
   // through the implicit-im2col tiled GEMM, grouped/depthwise convs through the
   // direct kernel, transposed convs through the gather kernel.
-  let code = SHADER_CONV2D;
+  let code = CODE_CONV2D[kind];
   if (transposed) {
-    code = SHADER_CONV_TRANSPOSE2D;
+    code = CODE_CONV_TRANSPOSE2D[kind];
   } else if (groups === 1) {
-    code = SHADER_CONV2D_GEMM;
+    code = CODE_CONV2D_GEMM[kind];
   }
 
   let workgroupCountX: number;
@@ -517,10 +527,10 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
  */
 export const convolution: Shader<ConvolutionArgs, typeof name> = {
   name,
-  code: {
-    conv2d: SHADER_CONV2D,
-    conv2dGemm: SHADER_CONV2D_GEMM,
-    convTranspose2d: SHADER_CONV_TRANSPOSE2D,
-  },
+  code: variantCode({
+    conv2d: CODE_CONV2D,
+    conv2dGemm: CODE_CONV2D_GEMM,
+    convTranspose2d: CODE_CONV_TRANSPOSE2D,
+  }),
   recordIn,
 };

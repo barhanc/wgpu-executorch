@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, it } from 'vitest';
 
 import { WgpuExecutionContext, type Program } from '../../src';
-import { setupGPU } from '../helpers';
+import { f32ToF16Array, readTensorF32, setupGPU } from '../helpers';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
 const PROGRAM_PATH = resolve(REPO_ROOT, 'example/public/assets/depthart/program.json');
@@ -42,14 +42,16 @@ describe('depthart program (full ExecuTorch graph)', () => {
       const program = JSON.parse(readFileSync(PROGRAM_PATH, 'utf8')) as Program;
       const weights = readArrayBuffer(WEIGHTS_PATH);
 
-      const inp = ctx.tensor('float32', [...INPUT_SHAPE]).setData(makeInput());
-      const out = ctx.tensor('float32', [...OUTPUT_SHAPE]);
+      // FP16 model: inputs are uploaded as binary16 (matching the PyTorch
+      // half reference, which rounds the deterministic pattern to f16).
+      const inp = ctx.tensor('float16', [...INPUT_SHAPE]).setData(f32ToF16Array(makeInput()));
+      const out = ctx.tensor('float16', [...OUTPUT_SHAPE]);
 
       ctx.recordProgram(program, weights, [inp, out]);
       ctx.submit();
       await ctx.sync();
 
-      const actual = new Float32Array(await out.getData());
+      const actual = await readTensorF32(out);
       const expected = new Float32Array(readArrayBuffer(REFERENCE_PATH));
 
       if (actual.length !== expected.length) {
@@ -58,29 +60,30 @@ describe('depthart program (full ExecuTorch graph)', () => {
         );
       }
 
-      // Affine-invariant depth is unbounded and reaches ~1e4 for this input;
-      // fp32 accumulation-order differences between CPU torch and GPU warrant
-      // an absolute tolerance orders of magnitude above elementwise epsilon
-      // but far below any real depth error (values span thousands).
+      // Affine-invariant depth is unbounded and reaches ~1e4 for this input.
+      // Both sides compute in f32 and round every layer to binary16; the
+      // residual drift between two binary16 realizations reaches ~0.4% of the
+      // value scale here, so the tolerance combines a small absolute term
+      // with a relative term (still far below any real depth error).
       let maxDiff = 0;
       let maxIdx = 0;
       let beyondTol = 0;
-      const tolerance = 1.0;
       for (let i = 0; i < actual.length; i++) {
         const diff = Math.abs(actual[i] - expected[i]);
         if (diff > maxDiff) {
           maxDiff = diff;
           maxIdx = i;
         }
+        const tolerance = 4.0 + 0.01 * Math.abs(expected[i]);
         if (diff > tolerance) {
           beyondTol++;
         }
       }
 
-      if (beyondTol > 0 || maxDiff > tolerance) {
+      if (beyondTol > 0) {
         throw new Error(
           `Output mismatch: ${beyondTol}/${actual.length} elements exceed tolerance ` +
-            `${tolerance} (max diff ${maxDiff.toExponential(3)} at index ${maxIdx}: ` +
+            `(max diff ${maxDiff.toExponential(3)} at index ${maxIdx}: ` +
             `got ${actual[maxIdx]}, expected ${expected[maxIdx]})`
         );
       }

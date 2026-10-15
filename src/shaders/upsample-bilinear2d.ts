@@ -3,6 +3,8 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
+import { floatKind, scalarCode } from './utils/scalar';
+
 const name = 'aten.upsample_bilinear2d.vec';
 
 /**
@@ -13,8 +15,10 @@ const name = 'aten.upsample_bilinear2d.vec';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-@group(0) @binding(1) var<storage, read> inp: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read_write> out: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> inp: array<scalar_t>;
 
 struct Params {
   N: u32,
@@ -72,16 +76,18 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let base = (n * params.C + c) * params.IH;
   let r0 = (base + h0c) * params.IW;
   let r1 = (base + h1c) * params.IW;
-  let v00 = inp[r0 + w0c];
-  let v01 = inp[r0 + w1c];
-  let v10 = inp[r1 + w0c];
-  let v11 = inp[r1 + w1c];
+  let v00 = f32(inp[r0 + w0c]);
+  let v01 = f32(inp[r0 + w1c]);
+  let v10 = f32(inp[r1 + w0c]);
+  let v11 = f32(inp[r1 + w1c]);
 
   let top = v00 + (v01 - v00) * lw;
   let bot = v10 + (v11 - v10) * lw;
-  out[i] = top + (bot - top) * lh;
+  out[i] = scalar_t(top + (bot - top) * lh);
 }
 `;
+
+const CODE = scalarCode(SHADER);
 
 /**
  * Positional argument tuple for `aten::upsample_bilinear2d.vec`:
@@ -106,9 +112,7 @@ function recordIn(ctx: WgpuExecutionContext, args: UpsampleBilinear2dArgs): void
   const alignCorners = args[2];
   const outTensor = args[4];
 
-  if (inTensor.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [inTensor, outTensor]);
   if (inTensor.shape.length !== 4 || outTensor.shape.length !== 4) {
     throw new Error(`${name}: expected 4D in/out tensors`);
   }
@@ -139,7 +143,7 @@ function recordIn(ctx: WgpuExecutionContext, args: UpsampleBilinear2dArgs): void
 
   const bundle = createComputeBundle(
     device,
-    SHADER,
+    CODE[kind],
     [
       { binding: 0, buffer: outTensor.buffer },
       { binding: 1, buffer: inTensor.buffer },
@@ -164,6 +168,6 @@ function recordIn(ctx: WgpuExecutionContext, args: UpsampleBilinear2dArgs): void
  */
 export const upsampleBilinear2d: Shader<UpsampleBilinear2dArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };

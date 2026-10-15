@@ -5,6 +5,7 @@ import { createComputeBundle } from '../command';
 
 import { isBroadcastable } from './utils/broadcasting';
 import { encodeTensorMeta, TENSOR_META_WGSL } from './utils/meta';
+import { floatKind, scalarCode } from './utils/scalar';
 
 const name = 'aten.mul.Tensor';
 
@@ -16,9 +17,11 @@ const name = 'aten.mul.Tensor';
  * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
  */
 const SHADER = /* wgsl */ `
-@group(0) @binding(0) var<storage, read> input1: array<f32>;
-@group(0) @binding(1) var<storage, read> input2: array<f32>;
-@group(0) @binding(2) var<storage, read_write> output: array<f32>;
+alias scalar_t = f32;
+
+@group(0) @binding(0) var<storage, read> input1: array<scalar_t>;
+@group(0) @binding(1) var<storage, read> input2: array<scalar_t>;
+@group(0) @binding(2) var<storage, read_write> output: array<scalar_t>;
 
 ${TENSOR_META_WGSL}
 @group(0) @binding(3) var<uniform> out_meta: TensorMeta;
@@ -46,7 +49,7 @@ fn main(
     }
   }
   if (same) {
-    output[idx] = input1[idx] * input2[idx];
+    output[idx] = scalar_t(f32(input1[idx]) * f32(input2[idx]));
     return;
   }
 
@@ -60,9 +63,11 @@ fn main(
     l1 = l1 + min(coord, in1_meta.sizes[d >> 2u][d & 3u] - 1u) * in1_meta.strides[d >> 2u][d & 3u];
     l2 = l2 + min(coord, in2_meta.sizes[d >> 2u][d & 3u] - 1u) * in2_meta.strides[d >> 2u][d & 3u];
   }
-  output[idx] = input1[l1] * input2[l2];
+  output[idx] = scalar_t(f32(input1[l1]) * f32(input2[l2]));
 }
 `;
+
+const CODE = scalarCode(SHADER);
 
 /**
  * Positional argument tuple for `aten::mul.Tensor`:
@@ -79,9 +84,7 @@ export type MulArgs = readonly [in1: Tensor, in2: Tensor, out: Tensor];
 function recordIn(ctx: WgpuExecutionContext, args: MulArgs): void {
   const [in1, in2, out] = args;
 
-  if (in1.dtype !== 'float32' || in2.dtype !== 'float32' || out.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
-  }
+  const kind = floatKind(name, [in1, in2, out]);
   if (!isBroadcastable(in1.shape, out.shape) || !isBroadcastable(in2.shape, out.shape)) {
     throw new Error(`${name}: Input shapes are not broadcastable to output shape`);
   }
@@ -100,7 +103,7 @@ function recordIn(ctx: WgpuExecutionContext, args: MulArgs): void {
 
   const bundle = createComputeBundle(
     device,
-    SHADER,
+    CODE[kind],
     [
       { binding: 0, buffer: in1.buffer },
       { binding: 1, buffer: in2.buffer },
@@ -129,6 +132,6 @@ function recordIn(ctx: WgpuExecutionContext, args: MulArgs): void {
  */
 export const mul: Shader<MulArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: CODE,
   recordIn,
 };
