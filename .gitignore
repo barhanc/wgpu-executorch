@@ -11,5 +11,6 @@ third-party/
 .vscode/
 *.pte
 *.pt
+*.pth
 .venv/
 __pycache__/

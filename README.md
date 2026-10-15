@@ -8,8 +8,8 @@ operations are executed as recorded command sequences.
 
 > [!TIP]
 > **[Try the live demo →](https://barhanc.github.io/wgpu-executorch/)** — camera-driven
-> object detection (YOLO26-N) and selfie segmentation, running entirely in your browser
-> on WebGPU. Use a WebGPU-capable browser (e.g. Chrome 113+).
+> object detection (YOLO26-N), selfie segmentation and depth estimation (DepthART),
+> running entirely in your browser on WebGPU. Use a WebGPU-capable browser (e.g. Chrome 113+).
 
 > [!WARNING]
 > This is an unfinished, experimental project and a lot of things still break.

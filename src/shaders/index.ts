@@ -2,6 +2,7 @@
 import { add } from './add';
 import { hardswish } from './hardswish';
 import { mul } from './mul';
+import { relu } from './relu';
 import { sigmoid } from './sigmoid';
 import { sub } from './sub';
 
@@ -37,7 +38,7 @@ import { viewCopy } from './view-copy';
 // prettier-ignore
 export const shaders = {
   // Elementwise arithmetic & activations
-  add, sub, mul, sigmoid, hardswish,
+  add, sub, mul, sigmoid, relu, hardswish,
   // Linear algebra & reductions
   mm, bmm, meanDim, softmax,
   // Convolutions & pooling
