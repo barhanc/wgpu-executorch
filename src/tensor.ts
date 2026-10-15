@@ -95,11 +95,15 @@ export class Tensor {
 
   /**
    * Uploads data from a host TypedArray or ArrayBuffer into this tensor's
-   * storage buffer.
+   * storage buffer. A source smaller than the tensor writes a prefix and
+   * leaves the remaining bytes untouched. Writes are padded to 4-byte
+   * alignment, so a partial write may zero up to three bytes past the copied
+   * data.
    *
    * @param src Source data to copy from.
    * @returns This tensor instance.
-   * @throws {Error} If source byte size is smaller than this tensor's byte length.
+   * @throws {Error} If the source exceeds the tensor's byte length — pass a
+   * view (e.g. `arr.subarray(0, n)`) to upload part of a larger buffer.
    */
   setData(src: TypedArray | ArrayBuffer): this {
     const byteLength = this.byteLength;
@@ -107,16 +111,16 @@ export class Tensor {
     if ((this.#buffer.usage & GPUBufferUsage.COPY_DST) === 0) {
       throw new Error('setData: buffer missing COPY_DST usage');
     }
-    if (src.byteLength < byteLength) {
-      throw new Error(`setData: source (${src.byteLength}B) < required (${byteLength}B)`);
+    if (src.byteLength > byteLength) {
+      throw new Error(`setData: source ${src.byteLength}B > tensor ${byteLength}B; pass a view`);
     }
 
-    const alignedSize = Math.ceil(byteLength / 4) * 4;
+    const alignedSize = Math.ceil(src.byteLength / 4) * 4;
     const bytes = new Uint8Array(alignedSize);
     bytes.set(
       src instanceof ArrayBuffer
-        ? new Uint8Array(src, 0, byteLength)
-        : new Uint8Array(src.buffer, src.byteOffset, byteLength)
+        ? new Uint8Array(src, 0, src.byteLength)
+        : new Uint8Array(src.buffer, src.byteOffset, src.byteLength)
     );
 
     this.#device.queue.writeBuffer(this.#buffer, 0, bytes.buffer, bytes.byteOffset, alignedSize);

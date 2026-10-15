@@ -86,11 +86,23 @@ describe('Tensor', () => {
     ctx.destroy();
   });
 
-  it('setData rejects source smaller than tensor', async () => {
+  it('setData writes a prefix when the source is smaller than the tensor', async () => {
     const device = await setupGPU();
     const ctx = new WgpuExecutionContext(device);
     const t = ctx.tensor('float32', [2, 3]);
-    expect(() => t.setData(new Float32Array([1, 2]))).toThrow(/< required/);
+    t.setData(new Float32Array([1, 2, 3, 4, 5, 6]));
+    t.setData(new Float32Array([7, 8]));
+
+    const data = new Float32Array(await t.getData());
+    expect(Array.from(data)).toEqual([7, 8, 3, 4, 5, 6]);
+    ctx.destroy();
+  });
+
+  it('setData rejects source larger than tensor', async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+    const t = ctx.tensor('float32', [2, 3]);
+    expect(() => t.setData(new Float32Array(8))).toThrow(/pass a view/);
     ctx.destroy();
   });
 
