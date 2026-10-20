@@ -10,6 +10,10 @@ import { SHADER_CONV_WITH_CLAMP_1X1_VEC4 } from './conv-with-clamp/conv-with-cla
 import { SHADER_CONV_WITH_CLAMP_1X1_64X64 } from './conv-with-clamp/conv-with-clamp-1x1-tile64.wgsl';
 import { SHADER_CONV_WITH_CLAMP_TILE64 } from './conv-with-clamp/conv-with-clamp-tile64.wgsl';
 import { SHADER_CONV_WITH_CLAMP_DEPTHWISE } from './conv-with-clamp/conv-with-clamp-depthwise.wgsl';
+import { SHADER_CONV_WITH_CLAMP_F16 } from './conv-with-clamp/conv-with-clamp-f16.wgsl';
+import { SHADER_CONV_WITH_CLAMP_GEMM_F16 } from './conv-with-clamp/conv-with-clamp-gemm-f16.wgsl';
+import { SHADER_CONV_WITH_CLAMP_TILE64_F16 } from './conv-with-clamp/conv-with-clamp-tile64-f16.wgsl';
+import { SHADER_CONV_WITH_CLAMP_DEPTHWISE_F16 } from './conv-with-clamp/conv-with-clamp-depthwise-f16.wgsl';
 
 const name = 'et_vk.conv_with_clamp.default';
 
@@ -60,11 +64,18 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
     outTensor,
   ] = args;
 
-  if (inTensor.dtype !== 'float32' || weight.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
+  if (
+    (inTensor.dtype !== 'float32' && inTensor.dtype !== 'float16') ||
+    weight.dtype !== inTensor.dtype ||
+    outTensor.dtype !== inTensor.dtype
+  ) {
+    throw new Error(`${name}: Tensors must have matching float32 or float16 dtype`);
   }
   if (inTensor.shape.length !== 4 || weight.shape.length !== 4 || outTensor.shape.length !== 4) {
     throw new Error(`${name}: expected 4D tensors for input, weight, and output`);
+  }
+  if (bias !== undefined && bias.dtype !== inTensor.dtype) {
+    throw new Error(`${name}: bias dtype must match input dtype`);
   }
   if (transposed) {
     throw new Error(`${name}: transposed conv is unsupported in conv_with_clamp`);
@@ -117,6 +128,10 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
 
   const numel = outTensor.numel;
   const device = ctx.device;
+  const isF16 = inTensor.dtype === 'float16';
+  if (isF16 && !device.features.has('shader-f16')) {
+    throw new Error(`${name}: Device does not support shader-f16 feature`);
+  }
   const wgSize = 64;
 
   const buffer = new ArrayBuffer(96);
@@ -159,20 +174,28 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   const isDepthwise =
     groups === oc && ic === oc && icPerGroup === 1 && kh * kw <= 49 && n * oc <= 65535;
 
-  let code = SHADER_CONV_WITH_CLAMP;
+  let code = isF16 ? SHADER_CONV_WITH_CLAMP_F16 : SHADER_CONV_WITH_CLAMP;
   if (isDepthwise) {
-    code = SHADER_CONV_WITH_CLAMP_DEPTHWISE;
+    code = isF16 ? SHADER_CONV_WITH_CLAMP_DEPTHWISE_F16 : SHADER_CONV_WITH_CLAMP_DEPTHWISE;
   } else if (groups === 1) {
-    if (is1x1Tile64) {
-      code = SHADER_CONV_WITH_CLAMP_1X1_64X64;
-    } else if (is1x1Vec4) {
-      code = SHADER_CONV_WITH_CLAMP_1X1_VEC4;
-    } else if (is1x1) {
-      code = SHADER_CONV_WITH_CLAMP_1X1;
-    } else if (isDenseTile64) {
-      code = SHADER_CONV_WITH_CLAMP_TILE64;
+    if (isF16) {
+      if (isDenseTile64) {
+        code = SHADER_CONV_WITH_CLAMP_TILE64_F16;
+      } else {
+        code = SHADER_CONV_WITH_CLAMP_GEMM_F16;
+      }
     } else {
-      code = SHADER_CONV_WITH_CLAMP_GEMM;
+      if (is1x1Tile64) {
+        code = SHADER_CONV_WITH_CLAMP_1X1_64X64;
+      } else if (is1x1Vec4) {
+        code = SHADER_CONV_WITH_CLAMP_1X1_VEC4;
+      } else if (is1x1) {
+        code = SHADER_CONV_WITH_CLAMP_1X1;
+      } else if (isDenseTile64) {
+        code = SHADER_CONV_WITH_CLAMP_TILE64;
+      } else {
+        code = SHADER_CONV_WITH_CLAMP_GEMM;
+      }
     }
   }
 
@@ -194,7 +217,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
     workgroupCountY = Math.ceil(totalWorkgroups / 65535);
     // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
     constants = { wg_size: wgSize };
-  } else if (is1x1Tile64) {
+  } else if (!isF16 && is1x1Tile64) {
     // 64x64 register-tiled GEMM for pointwise 1x1 conv with clamp
     workgroupCountX = Math.ceil((expectedHout * expectedWout) / 64);
     workgroupCountY = Math.ceil(oc / 64);
@@ -255,6 +278,10 @@ export const convWithClamp: Shader<ConvWithClampArgs, typeof name> = {
     convWithClamp1x1Tile64: SHADER_CONV_WITH_CLAMP_1X1_64X64,
     convWithClampTile64: SHADER_CONV_WITH_CLAMP_TILE64,
     convWithClampDepthwise3x3: SHADER_CONV_WITH_CLAMP_DEPTHWISE,
+    convWithClampF16: SHADER_CONV_WITH_CLAMP_F16,
+    convWithClampGemmF16: SHADER_CONV_WITH_CLAMP_GEMM_F16,
+    convWithClampTile64F16: SHADER_CONV_WITH_CLAMP_TILE64_F16,
+    convWithClampDepthwiseF16: SHADER_CONV_WITH_CLAMP_DEPTHWISE_F16,
   },
   recordIn,
 };

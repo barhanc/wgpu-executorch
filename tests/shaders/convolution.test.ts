@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { WgpuExecutionContext, shaders } from '../../src';
 import { setupGPU, expectTensorClose } from '../helpers';
 
@@ -221,6 +221,117 @@ describe('aten.convolution.default', () => {
         34.45, 31.95, 68.4, 34.55, 73.6, 37.15, 38.5,
       ]
     );
+    ctx.destroy();
+  });
+
+  it('computes float16 2D dense convolution with bias (f16 GEMM)', async () => {
+    const device = await setupGPU();
+    if (!device.features.has('shader-f16')) return;
+    const ctx = new WgpuExecutionContext(device);
+
+    const inp = ctx
+      .tensor('float16', [1, 1, 3, 3])
+      .setData(new Float16Array([1, 2, 3, 4, 5, 6, 7, 8, 9]));
+    const weight = ctx.tensor('float16', [1, 1, 2, 2]).setData(new Float16Array([1, 0, 0, 1]));
+    const bias = ctx.tensor('float16', [1]).setData(new Float16Array([10]));
+    const out = ctx.tensor('float16', [1, 1, 2, 2]);
+
+    ctx.recordShader(shaders.convolution, [
+      inp,
+      weight,
+      bias,
+      [1, 1],
+      [0, 0],
+      [1, 1],
+      false,
+      [0, 0],
+      1,
+      out,
+    ]);
+    ctx.submit();
+    await ctx.sync();
+
+    await expectTensorClose(out, [16, 18, 22, 24], 1e-2);
+    ctx.destroy();
+  });
+
+  it('computes float16 64x64 register-tiled dense convolution', async () => {
+    const device = await setupGPU();
+    if (!device.features.has('shader-f16')) return;
+    const ctx = new WgpuExecutionContext(device);
+
+    const B = 1;
+    const IC = 64;
+    const IH = 8;
+    const IW = 8;
+    const OC = 64;
+    const KH = 1;
+    const KW = 1;
+
+    const inData = new Float16Array(B * IC * IH * IW);
+    for (let i = 0; i < inData.length; i++) inData[i] = ((i % 5) - 2) * 0.5;
+    const wData = new Float16Array(OC * IC * KH * KW);
+    for (let i = 0; i < wData.length; i++) wData[i] = ((i % 7) - 3) * 0.25;
+
+    const inp = ctx.tensor('float16', [B, IC, IH, IW]).setData(inData);
+    const weight = ctx.tensor('float16', [OC, IC, KH, KW]).setData(wData);
+    const out = ctx.tensor('float16', [B, OC, IH, IW]);
+
+    ctx.recordShader(shaders.convolution, [
+      inp,
+      weight,
+      undefined,
+      [1, 1],
+      [0, 0],
+      [1, 1],
+      false,
+      [0, 0],
+      1,
+      out,
+    ]);
+    ctx.submit();
+    await ctx.sync();
+
+    // Verify first few elements manually
+    const actual = new Float16Array(await out.getData());
+    // For oc = 0, spatial (0, 0): sum over ic of in[0, ic, 0, 0] * w[0, ic, 0, 0]
+    let expected00 = 0;
+    for (let ic = 0; ic < IC; ic++) {
+      const inVal = inData[ic * (IH * IW)];
+      const wVal = wData[ic];
+      expected00 += inVal * wVal;
+    }
+    expect(actual[0]).toBeCloseTo(expected00, 1);
+    ctx.destroy();
+  });
+
+  it('computes float16 depthwise convolution', async () => {
+    const device = await setupGPU();
+    if (!device.features.has('shader-f16')) return;
+    const ctx = new WgpuExecutionContext(device);
+
+    const inp = ctx
+      .tensor('float16', [1, 2, 2, 2])
+      .setData(new Float16Array([1, 2, 3, 4, 10, 20, 30, 40]));
+    const weight = ctx.tensor('float16', [2, 1, 1, 1]).setData(new Float16Array([2, 0.5]));
+    const out = ctx.tensor('float16', [1, 2, 2, 2]);
+
+    ctx.recordShader(shaders.convolution, [
+      inp,
+      weight,
+      undefined,
+      [1, 1],
+      [0, 0],
+      [1, 1],
+      false,
+      [0, 0],
+      2,
+      out,
+    ]);
+    ctx.submit();
+    await ctx.sync();
+
+    await expectTensorClose(out, [2, 4, 6, 8, 5, 10, 15, 20], 1e-2);
     ctx.destroy();
   });
 });

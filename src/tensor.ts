@@ -8,7 +8,14 @@ export type DType =
  * Supported typed arrays that can be uploaded to a Tensor.
  */
 export type TypedArray =
-  Float32Array | Int32Array | Int8Array | Uint8Array | Uint16Array | Float64Array | BigInt64Array;
+  | Float32Array
+  | Float16Array
+  | Int32Array
+  | Int8Array
+  | Uint8Array
+  | Uint16Array
+  | Float64Array
+  | BigInt64Array;
 
 /**
  * Maximum tensor rank supported by WebGPU kernels (std140 layout limit).

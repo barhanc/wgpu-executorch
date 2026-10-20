@@ -43,4 +43,40 @@ describe('aten.mul.Tensor', () => {
     await expectTensorClose(out, [2, 4, 6, 8, 5, 10, 15, 20]);
     ctx.destroy();
   });
+
+  it('computes float16 elementwise multiplication', async () => {
+    const device = await setupGPU();
+    if (!device.features.has('shader-f16')) return;
+    const ctx = new WgpuExecutionContext(device);
+
+    const a = ctx.tensor('float16', [2, 2]).setData(new Float16Array([1, 2, 3, 4]));
+    const b = ctx.tensor('float16', [2, 2]).setData(new Float16Array([5, 6, 7, 8]));
+    const out = ctx.tensor('float16', [2, 2]);
+
+    ctx.recordShader(shaders.mul, [a, b, out]);
+    ctx.submit();
+    await ctx.sync();
+
+    await expectTensorClose(out, [5, 12, 21, 32], 1e-2);
+    ctx.destroy();
+  });
+
+  it('computes float16 broadcasted multiplication', async () => {
+    const device = await setupGPU();
+    if (!device.features.has('shader-f16')) return;
+    const ctx = new WgpuExecutionContext(device);
+
+    const a = ctx
+      .tensor('float16', [1, 2, 2, 2])
+      .setData(new Float16Array([1, 2, 3, 4, 10, 20, 30, 40]));
+    const b = ctx.tensor('float16', [1, 2, 1, 1]).setData(new Float16Array([2.0, 0.5]));
+    const out = ctx.tensor('float16', [1, 2, 2, 2]);
+
+    ctx.recordShader(shaders.mul, [a, b, out]);
+    ctx.submit();
+    await ctx.sync();
+
+    await expectTensorClose(out, [2, 4, 6, 8, 5, 10, 15, 20], 1e-2);
+    ctx.destroy();
+  });
 });

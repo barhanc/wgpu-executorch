@@ -58,6 +58,56 @@ fn main(
 }
 `;
 
+const SHADER_F16 = /* wgsl */ `
+enable f16;
+
+@group(0) @binding(0) var<storage, read> input: array<f16>;
+@group(0) @binding(1) var<storage, read_write> output: array<f16>;
+
+struct Params {
+  num_elements: u32,
+}
+@group(0) @binding(2) var<uniform> params: Params;
+
+override wg_size: u32 = 256;
+
+@compute @workgroup_size(wg_size)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.num_elements) {
+    return;
+  }
+  output[idx] = max(input[idx], 0.0h);
+}
+`;
+
+const SHADER_VEC4_F16 = /* wgsl */ `
+enable f16;
+
+@group(0) @binding(0) var<storage, read> input: array<vec4<f16>>;
+@group(0) @binding(1) var<storage, read_write> output: array<vec4<f16>>;
+
+struct Params {
+  num_elements: u32,
+}
+@group(0) @binding(2) var<uniform> params: Params;
+
+override wg_size: u32 = 256;
+
+@compute @workgroup_size(wg_size)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.num_elements) {
+    return;
+  }
+  output[idx] = max(input[idx], vec4<f16>(0.0h));
+}
+`;
+
 /**
  * Positional argument tuple for `aten::relu.default`:
  * `[inTensor, outTensor]`
@@ -71,19 +121,30 @@ export type ReluArgs = readonly [inTensor: Tensor, outTensor: Tensor];
  * @param args Positional arguments for the operator.
  */
 function recordIn(ctx: WgpuExecutionContext, [inTensor, outTensor]: ReluArgs): void {
-  if (inTensor.dtype !== 'float32' || outTensor.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
+  if (
+    (inTensor.dtype !== 'float32' && inTensor.dtype !== 'float16') ||
+    outTensor.dtype !== inTensor.dtype
+  ) {
+    throw new Error(`${name}: Tensors must have matching float32 or float16 dtype`);
   }
   if (inTensor.numel !== outTensor.numel) {
     throw new Error(`${name}: input numel != output numel`);
   }
 
   const device = ctx.device;
+  const isF16 = inTensor.dtype === 'float16';
+  if (isF16 && !device.features.has('shader-f16')) {
+    throw new Error(`${name}: Device does not support shader-f16 feature`);
+  }
+
   const wgSize = 256;
   const numel = outTensor.numel;
   const useVec4 = numel % 4 === 0;
   const effectiveNumel = useVec4 ? numel / 4 : numel;
-  const code = useVec4 ? SHADER_VEC4 : SHADER;
+  let code = useVec4 ? SHADER_VEC4 : SHADER;
+  if (isF16) {
+    code = useVec4 ? SHADER_VEC4_F16 : SHADER_F16;
+  }
 
   const totalWorkgroups = Math.ceil(effectiveNumel / wgSize);
   const workgroupCountX = Math.min(totalWorkgroups, 65535);
@@ -121,6 +182,11 @@ function recordIn(ctx: WgpuExecutionContext, [inTensor, outTensor]: ReluArgs): v
  */
 export const relu: Shader<ReluArgs, typeof name> = {
   name,
-  code: { scalar: SHADER, vec4: SHADER_VEC4 },
+  code: {
+    scalar: SHADER,
+    vec4: SHADER_VEC4,
+    scalarF16: SHADER_F16,
+    vec4F16: SHADER_VEC4_F16,
+  },
   recordIn,
 };

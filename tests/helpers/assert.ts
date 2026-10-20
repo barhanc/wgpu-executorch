@@ -12,7 +12,8 @@ export async function expectTensorClose(
   expected: number[],
   tolerance = 1e-5
 ): Promise<void> {
-  const actual = new Float32Array(await tensor.getData());
+  const data = await tensor.getData();
+  const actual = tensor.dtype === 'float16' ? new Float16Array(data) : new Float32Array(data);
 
   if (actual.length !== expected.length) {
     throw new Error(`Tensor length mismatch: got ${actual.length}, expected ${expected.length}`);

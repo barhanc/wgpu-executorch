@@ -12,6 +12,10 @@ export async function setupGPU(): Promise<GPUDevice> {
   if (!adapter) {
     throw new Error('No suitable GPU adapter found');
   }
-  cached = await adapter.requestDevice();
+  const requiredFeatures: GPUFeatureName[] = [];
+  if (adapter.features.has('shader-f16')) {
+    requiredFeatures.push('shader-f16');
+  }
+  cached = await adapter.requestDevice({ requiredFeatures });
   return cached;
 }
