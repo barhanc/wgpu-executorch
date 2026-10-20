@@ -2,303 +2,11 @@ import type { Shader } from '../shader';
 import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
+import { SHADER_MM_TILED } from './mm/mm-tiled.wgsl';
+import { SHADER_MM_VEC4 } from './mm/mm-vec4.wgsl';
+import { SHADER_MM_64X64 } from './mm/mm-64x64.wgsl';
 
 const name = 'aten.mm.default';
-
-/**
- * WGSL compute shader for matrix multiplication with shared-memory tiling
- * (32x32 tile, 4x4 per thread).
- *
- * Source: ExecuTorch (backends/webgpu/runtime/ops/mm/mm_tiled.wgsl)
- * GitHub: https://github.com/pytorch/executorch/blob/main/backends/webgpu/runtime/ops/mm/mm_tiled.wgsl
- * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
- */
-const SHADER_TILED = /* wgsl */ `
-struct Params {
-  M: u32,
-  N: u32,
-  K: u32,
-  pad_: u32,
-};
-
-@group(0) @binding(0) var<storage, read> a: array<f32>;
-@group(0) @binding(1) var<storage, read> b: array<f32>;
-@group(0) @binding(2) var<storage, read_write> out: array<f32>;
-@group(0) @binding(3) var<uniform> params: Params;
-
-const TILE: u32 = 32u;
-const RPT: u32 = 4u;
-
-var<workgroup> a_sub: array<array<f32, 32>, 32>;
-var<workgroup> b_sub: array<array<f32, 32>, 32>;
-
-fn read_a(row: u32, col: u32) -> f32 {
-  if (row < params.M && col < params.K) {
-    return a[row * params.K + col];
-  }
-  return 0.0;
-}
-
-fn read_b(row: u32, col: u32) -> f32 {
-  if (row < params.K && col < params.N) {
-    return b[row * params.N + col];
-  }
-  return 0.0;
-}
-
-@compute @workgroup_size(8, 8, 1)
-fn main(
-  @builtin(workgroup_id) wg_id: vec3<u32>,
-  @builtin(local_invocation_id) local_id: vec3<u32>
-) {
-  let tile_row0 = wg_id.y * TILE;
-  let tile_col0 = wg_id.x * TILE;
-  let tile_row = local_id.y * RPT;
-  let tile_col = local_id.x * RPT;
-
-  var acc: array<array<f32, 4>, 4>;
-  for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-    for (var ic: u32 = 0u; ic < RPT; ic = ic + 1u) {
-      acc[ir][ic] = 0.0;
-    }
-  }
-
-  let num_tiles = (params.K + TILE - 1u) / TILE;
-  for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
-    let k_start = t * TILE;
-    for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-      let arow = local_id.y * RPT + ir;
-      for (var kk: u32 = 0u; kk < RPT; kk = kk + 1u) {
-        let col = local_id.x * RPT + kk;
-        a_sub[arow][col] = read_a(tile_row0 + arow, k_start + col);
-        b_sub[arow][col] = read_b(k_start + arow, tile_col0 + col);
-      }
-    }
-    workgroupBarrier();
-
-    for (var k: u32 = 0u; k < TILE; k = k + 1u) {
-      for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-        let aval = a_sub[tile_row + ir][k];
-        for (var ic: u32 = 0u; ic < RPT; ic = ic + 1u) {
-          acc[ir][ic] = acc[ir][ic] + aval * b_sub[k][tile_col + ic];
-        }
-      }
-    }
-    workgroupBarrier();
-  }
-
-  for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-    for (var ic: u32 = 0u; ic < RPT; ic = ic + 1u) {
-      let r = tile_row0 + tile_row + ir;
-      let c = tile_col0 + tile_col + ic;
-      if (r < params.M && c < params.N) {
-        out[r * params.N + c] = acc[ir][ic];
-      }
-    }
-  }
-}
-`;
-
-/**
- * WGSL compute shader for vectorized 128-bit memory-bandwidth optimized matrix
- * multiplication. Operates on vec4<f32> for 4x wider memory transactions when K
- * and N are multiples of 4.
- *
- * Source: ExecuTorch (backends/webgpu/runtime/ops/mm/mm_vec4.wgsl)
- * GitHub: https://github.com/pytorch/executorch/blob/main/backends/webgpu/runtime/ops/mm/mm_vec4.wgsl
- * License: BSD-3-Clause (Copyright (c) Meta Platforms, Inc. and affiliates)
- */
-const SHADER_VEC4 = /* wgsl */ `
-struct Params {
-  M: u32,
-  N: u32,
-  K: u32,
-  pad_: u32,
-};
-
-@group(0) @binding(0) var<storage, read> a: array<vec4<f32>>;
-@group(0) @binding(1) var<storage, read> b: array<vec4<f32>>;
-@group(0) @binding(2) var<storage, read_write> out: array<vec4<f32>>;
-@group(0) @binding(3) var<uniform> params: Params;
-
-const TILE: u32 = 32u;
-const RPT: u32 = 4u;
-const TILE4: u32 = 8u;
-
-var<workgroup> a_sub: array<array<vec4<f32>, 8>, 32>;
-var<workgroup> b_sub: array<array<vec4<f32>, 8>, 32>;
-
-fn read_a4(row: u32, k4: u32) -> vec4<f32> {
-  if (row < params.M && k4 * 4u < params.K) {
-    return a[row * (params.K / 4u) + k4];
-  }
-  return vec4<f32>(0.0);
-}
-
-fn read_b4(krow: u32, n4: u32) -> vec4<f32> {
-  if (krow < params.K && n4 * 4u < params.N) {
-    return b[krow * (params.N / 4u) + n4];
-  }
-  return vec4<f32>(0.0);
-}
-
-@compute @workgroup_size(8, 8, 1)
-fn main(
-  @builtin(workgroup_id) wg_id: vec3<u32>,
-  @builtin(local_invocation_id) local_id: vec3<u32>
-) {
-  let tile_row0 = wg_id.y * TILE;
-  let tile_col0_4 = wg_id.x * TILE4;
-  let tile_row = local_id.y * RPT;
-  let tile_col4 = local_id.x;
-
-  var acc: array<vec4<f32>, 4>;
-  for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-    acc[ir] = vec4<f32>(0.0);
-  }
-
-  let num_tiles = (params.K + TILE - 1u) / TILE;
-  for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
-    let k4_start = t * TILE4;
-    for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-      let arow = local_id.y * RPT + ir;
-      a_sub[arow][local_id.x] = read_a4(tile_row0 + arow, k4_start + local_id.x);
-      b_sub[arow][local_id.x] = read_b4(t * TILE + arow, tile_col0_4 + local_id.x);
-    }
-    workgroupBarrier();
-
-    for (var k4: u32 = 0u; k4 < TILE4; k4 = k4 + 1u) {
-      let b0 = b_sub[k4 * 4u + 0u][tile_col4];
-      let b1 = b_sub[k4 * 4u + 1u][tile_col4];
-      let b2 = b_sub[k4 * 4u + 2u][tile_col4];
-      let b3 = b_sub[k4 * 4u + 3u][tile_col4];
-      for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-        let ac = a_sub[tile_row + ir][k4];
-        acc[ir] = acc[ir] + b0 * ac.x + b1 * ac.y + b2 * ac.z + b3 * ac.w;
-      }
-    }
-    workgroupBarrier();
-  }
-
-  for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-    let r = tile_row0 + tile_row + ir;
-    let c4 = tile_col0_4 + tile_col4;
-    if (r < params.M && c4 * 4u < params.N) {
-      out[r * (params.N / 4u) + c4] = acc[ir];
-    }
-  }
-}
-`;
-
-/**
- * WGSL compute shader for 64x64 tiled GEMM with 2D register tiling (8x8 per thread).
- * Features 2x higher arithmetic intensity and memory reuse than the 32x32 kernel.
- */
-const SHADER_64X64 = /* wgsl */ `
-struct Params {
-  M: u32,
-  N: u32,
-  K: u32,
-  pad_: u32,
-};
-
-@group(0) @binding(0) var<storage, read> a: array<vec4<f32>>;
-@group(0) @binding(1) var<storage, read> b: array<vec4<f32>>;
-@group(0) @binding(2) var<storage, read_write> out: array<vec4<f32>>;
-@group(0) @binding(3) var<uniform> params: Params;
-
-var<workgroup> a_sub: array<array<vec4<f32>, 4>, 64>;
-var<workgroup> b_sub: array<array<vec4<f32>, 16>, 16>;
-
-@compute @workgroup_size(8, 8, 1)
-fn main(
-  @builtin(workgroup_id) wg_id: vec3<u32>,
-  @builtin(local_invocation_id) local_id: vec3<u32>
-) {
-  let tile_row0 = wg_id.y * 64u;
-  let tile_col0_4 = wg_id.x * 16u;
-  let tid = local_id.y * 8u + local_id.x;
-  let K_vecs = params.K / 4u;
-  let N_vecs = params.N / 4u;
-
-  var acc0: array<vec4<f32>, 8>;
-  var acc1: array<vec4<f32>, 8>;
-  for (var i = 0u; i < 8u; i = i + 1u) {
-    acc0[i] = vec4<f32>(0.0);
-    acc1[i] = vec4<f32>(0.0);
-  }
-
-  let num_tiles = (params.K + 15u) / 16u;
-  for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
-    let k4_start = t << 2u;
-    let a_row = tid;
-    let a_m = tile_row0 + a_row;
-    let a_valid = a_m < params.M;
-    let a_base = a_m * K_vecs + k4_start;
-    for (var col = 0u; col < 4u; col = col + 1u) {
-      if (a_valid && (k4_start + col) < K_vecs) {
-        a_sub[a_row][col] = a[a_base + col];
-      } else {
-        a_sub[a_row][col] = vec4<f32>(0.0);
-      }
-    }
-
-    let b_r = tid >> 2u;
-    let b_c_base = (tid & 3u) << 2u;
-    let b_k = (t << 4u) + b_r;
-    let b_k_valid = b_k < params.K;
-    let b_base = b_k * N_vecs + tile_col0_4 + b_c_base;
-    for (var i = 0u; i < 4u; i = i + 1u) {
-      let b_c = b_c_base + i;
-      let b_n4 = tile_col0_4 + b_c;
-      if (b_k_valid && b_n4 < N_vecs) {
-        b_sub[b_r][b_c] = b[b_base + i];
-      } else {
-        b_sub[b_r][b_c] = vec4<f32>(0.0);
-      }
-    }
-    workgroupBarrier();
-
-    let thread_row = local_id.y * 8u;
-    let thread_col4 = local_id.x * 2u;
-
-    for (var k4: u32 = 0u; k4 < 4u; k4 = k4 + 1u) {
-      let b0_0 = b_sub[k4 * 4u + 0u][thread_col4];
-      let b0_1 = b_sub[k4 * 4u + 0u][thread_col4 + 1u];
-
-      let b1_0 = b_sub[k4 * 4u + 1u][thread_col4];
-      let b1_1 = b_sub[k4 * 4u + 1u][thread_col4 + 1u];
-
-      let b2_0 = b_sub[k4 * 4u + 2u][thread_col4];
-      let b2_1 = b_sub[k4 * 4u + 2u][thread_col4 + 1u];
-
-      let b3_0 = b_sub[k4 * 4u + 3u][thread_col4];
-      let b3_1 = b_sub[k4 * 4u + 3u][thread_col4 + 1u];
-
-      for (var ir = 0u; ir < 8u; ir = ir + 1u) {
-        let ac = a_sub[thread_row + ir][k4];
-        acc0[ir] = acc0[ir] + b0_0 * ac.x + b1_0 * ac.y + b2_0 * ac.z + b3_0 * ac.w;
-        acc1[ir] = acc1[ir] + b0_1 * ac.x + b1_1 * ac.y + b2_1 * ac.z + b3_1 * ac.w;
-      }
-    }
-    workgroupBarrier();
-  }
-
-  let thread_row = local_id.y * 8u;
-  let col4 = tile_col0_4 + local_id.x * 2u;
-  for (var ir = 0u; ir < 8u; ir = ir + 1u) {
-    let r = tile_row0 + thread_row + ir;
-    if (r < params.M) {
-      if (col4 < N_vecs) {
-        out[r * N_vecs + col4] = acc0[ir];
-      }
-      if (col4 + 1u < N_vecs) {
-        out[r * N_vecs + col4 + 1u] = acc1[ir];
-      }
-    }
-  }
-}
-`;
 
 /**
  * Output tile dimension per workgroup (32x32).
@@ -344,16 +52,16 @@ function recordIn(ctx: WgpuExecutionContext, [in1, in2, out]: MmArgs): void {
   const useVec4 = k1 % 4 === 0 && n % 4 === 0;
   const use64x64 = useVec4 && m >= 64 && n >= 64 && k1 >= 16;
 
-  let code = SHADER_TILED;
+  let code = SHADER_MM_TILED;
   let workgroupCountX = Math.ceil(n / TILE);
   let workgroupCountY = Math.ceil(m / TILE);
 
   if (use64x64) {
-    code = SHADER_64X64;
+    code = SHADER_MM_64X64;
     workgroupCountX = Math.ceil(n / 64);
     workgroupCountY = Math.ceil(m / 64);
   } else if (useVec4) {
-    code = SHADER_VEC4;
+    code = SHADER_MM_VEC4;
   }
 
   const bundle = createComputeBundle(device, code, [
@@ -380,6 +88,6 @@ function recordIn(ctx: WgpuExecutionContext, [in1, in2, out]: MmArgs): void {
  */
 export const mm: Shader<MmArgs, typeof name> = {
   name,
-  code: { tiled: SHADER_TILED, vec4: SHADER_VEC4, tiled64x64: SHADER_64X64 },
+  code: { tiled: SHADER_MM_TILED, vec4: SHADER_MM_VEC4, tiled64x64: SHADER_MM_64X64 },
   recordIn,
 };
