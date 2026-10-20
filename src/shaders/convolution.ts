@@ -160,9 +160,12 @@ fn main(
 
   // Precompute spatial coords for this thread's 4 columns in B (invariant across K tiles)
   var col_b: array<u32, 4>;
+  var col_b_ic: array<u32, 4>;
   var col_valid: array<bool, 4>;
   var col_oh_arr: array<i32, 4>;
   var col_ow_arr: array<i32, 4>;
+  var col_ih_base: array<i32, 4>;
+  var col_iw_base: array<i32, 4>;
   for (var kk: u32 = 0u; kk < RPT; kk = kk + 1u) {
     let n = tile_col0 + local_id.x * RPT + kk;
     if (n < N) {
@@ -170,16 +173,26 @@ fn main(
       let b_val = n / ohw;
       let sp = n % ohw;
       col_b[kk] = b_val;
-      col_oh_arr[kk] = i32(sp / params.OW);
-      col_ow_arr[kk] = i32(sp % params.OW);
+      col_b_ic[kk] = b_val * params.IC;
+      let oh_val = i32(sp / params.OW);
+      let ow_val = i32(sp % params.OW);
+      col_oh_arr[kk] = oh_val;
+      col_ow_arr[kk] = ow_val;
+      col_ih_base[kk] = oh_val * sH - pH;
+      col_iw_base[kk] = ow_val * sW - pW;
     } else {
       col_valid[kk] = false;
       col_b[kk] = 0u;
+      col_b_ic[kk] = 0u;
       col_oh_arr[kk] = 0;
       col_ow_arr[kk] = 0;
+      col_ih_base[kk] = 0;
+      col_iw_base[kk] = 0;
     }
   }
 
+  let in_hw = params.IH * params.IW;
+  let in_w = params.IW;
   let num_tiles = (K + TILE - 1u) / TILE;
   for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
     let k_start = t * TILE;
@@ -190,31 +203,35 @@ fn main(
 
       var k_valid = false;
       var k_ic = 0u;
-      var k_kh = 0;
-      var k_kw = 0;
+      var kh_dH = 0;
+      var kw_dW = 0;
       if (kk_idx < K) {
         k_valid = true;
         k_ic = kk_idx / khw;
         let rem = kk_idx % khw;
-        k_kh = i32(rem / params.KW);
-        k_kw = i32(rem % params.KW);
+        kh_dH = i32(rem / params.KW) * dH;
+        kw_dW = i32(rem % params.KW) * dW;
       }
+
+      let m_valid = m < M;
+      let w_row_base = m * K + k_start + local_id.x * RPT;
 
       var b_row: vec4<f32>;
       for (var kk: u32 = 0u; kk < RPT; kk = kk + 1u) {
         let col = local_id.x * RPT + kk;
         let k_col = k_start + col;
-        if (m < M && k_col < K) {
-          a_sub[arow][col] = weight[m * K + k_col];
+        if (m_valid && k_col < K) {
+          a_sub[arow][col] = weight[w_row_base + kk];
         } else {
           a_sub[arow][col] = 0.0;
         }
 
         if (k_valid && col_valid[kk]) {
-          let ih = col_oh_arr[kk] * sH - pH + k_kh * dH;
-          let iw = col_ow_arr[kk] * sW - pW + k_kw * dW;
+          let ih = col_ih_base[kk] + kh_dH;
+          let iw = col_iw_base[kk] + kw_dW;
           if (ih >= 0 && ih < iH && iw >= 0 && iw < iW) {
-            b_row[kk] = input[((col_b[kk] * params.IC + k_ic) * params.IH + u32(ih)) * params.IW + u32(iw)];
+            let ch_idx = col_b[kk] + k_ic;
+            b_row[kk] = input[ch_idx * in_hw + u32(ih) * in_w + u32(iw)];
           } else {
             b_row[kk] = 0.0;
           }
@@ -607,7 +624,7 @@ struct Params {
 }
 @group(0) @binding(4) var<uniform> params: Params;
 
-var<workgroup> w_tile: array<f32, 9>;
+var<workgroup> w_tile: array<f32, 49>;
 var<workgroup> bias_val: f32;
 
 @compute @workgroup_size(16, 16, 1)
@@ -619,11 +636,12 @@ fn main(
   let oc = wg_id.z % params.OC;
   let b = wg_id.z / params.OC;
 
-  if (local_id.x < 3u && local_id.y < 3u) {
-    let k_idx = local_id.y * 3u + local_id.x;
-    w_tile[k_idx] = weight[oc * 9u + k_idx];
+  let tid = local_id.y * 16u + local_id.x;
+  let khw = params.KH * params.KW;
+  if (tid < khw) {
+    w_tile[tid] = weight[oc * khw + tid];
   }
-  if (local_id.x == 0u && local_id.y == 0u) {
+  if (tid == 0u) {
     if (params.has_bias != 0u) {
       bias_val = bias[oc];
     } else {
@@ -646,12 +664,12 @@ fn main(
   let iW = i32(params.IW);
   let in_base = (b * params.IC + oc) * params.IH;
 
-  for (var kh: u32 = 0u; kh < 3u; kh = kh + 1u) {
+  for (var kh: u32 = 0u; kh < params.KH; kh = kh + 1u) {
     let ih = ih0 + i32(kh) * i32(params.dH);
     if (ih >= 0 && ih < iH) {
       let row_offset = (in_base + u32(ih)) * params.IW;
-      let w_offset = kh * 3u;
-      for (var kw: u32 = 0u; kw < 3u; kw = kw + 1u) {
+      let w_offset = kh * params.KW;
+      for (var kw: u32 = 0u; kw < params.KW; kw = kw + 1u) {
         let iw = iw0 + i32(kw) * i32(params.dW);
         if (iw >= 0 && iw < iW) {
           acc = acc + input[row_offset + u32(iw)] * w_tile[w_offset + kw];
@@ -913,13 +931,18 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
   const is1x1Vec4 = is1x1 && ic % 4 === 0 && (oh * ow) % 4 === 0 && oc % 4 === 0;
   const is1x1Tile64 = is1x1Vec4 && b === 1 && oc >= 64 && oh * ow >= 64 && ic >= 16;
 
-  const isDepthwise3x3 =
-    !transposed && groups === oc && ic === oc && weight.shape[1] === 1 && kh === 3 && kw === 3;
+  const isDepthwise =
+    !transposed &&
+    groups === oc &&
+    ic === oc &&
+    weight.shape[1] === 1 &&
+    kh * kw <= 49 &&
+    b * oc <= 65535;
 
   let code = SHADER_CONV2D;
   if (transposed) {
     code = SHADER_CONV_TRANSPOSE2D;
-  } else if (isDepthwise3x3) {
+  } else if (isDepthwise) {
     code = SHADER_CONV2D_DEPTHWISE3X3;
   } else if (groups === 1) {
     if (is1x1Tile64) {
@@ -938,7 +961,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
   let workgroupCountZ = 1;
   let constants: Record<string, number>;
 
-  if (isDepthwise3x3) {
+  if (isDepthwise) {
     // Spatial 16x16 workgroup per (batch, oc) channel slice
     workgroupCountX = Math.ceil(ow / 16);
     workgroupCountY = Math.ceil(oh / 16);

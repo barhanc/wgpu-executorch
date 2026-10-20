@@ -56,13 +56,17 @@ fn main(
     k = k + wg_size;
   }
   partials[lid.x] = acc;
+
+  for (var stride = 128u; stride > 0u; stride = stride >> 1u) {
+    workgroupBarrier();
+    if (lid.x < stride && lid.x + stride < wg_size) {
+      partials[lid.x] = partials[lid.x] + partials[lid.x + stride];
+    }
+  }
   workgroupBarrier();
 
   if (lid.x == 0u) {
     var s: f32 = partials[0];
-    for (var i: u32 = 1u; i < wg_size; i = i + 1u) {
-      s = s + partials[i];
-    }
     if (params.is_mean == 1u) {
       s = s / f32(params.r_);
     }
