@@ -1,0 +1,60 @@
+import { TENSOR_META_WGSL } from '../utils/meta';
+
+/**
+ * WGSL compute shader for FP16 binary subtraction with broadcast support.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
+ */
+export const SHADER_SUB_BROADCAST_F16 = /* wgsl */ `
+enable f16;
+
+@group(0) @binding(0) var<storage, read> input1: array<f16>;
+@group(0) @binding(1) var<storage, read> input2: array<f16>;
+@group(0) @binding(2) var<storage, read_write> output: array<f16>;
+
+${TENSOR_META_WGSL}
+@group(0) @binding(3) var<uniform> out_meta: TensorMeta;
+@group(0) @binding(4) var<uniform> in1_meta: TensorMeta;
+@group(0) @binding(5) var<uniform> in2_meta: TensorMeta;
+
+override wg_size: u32 = 64u;
+override alpha: f32 = 1.0;
+
+fn op_f16(a: f16, b: f16) -> f16 {
+  return a - f16(alpha) * b;
+}
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= out_meta.numel) {
+    return;
+  }
+
+  var same = true;
+  for (var d: u32 = 0u; d < out_meta.ndim; d = d + 1u) {
+    if (in1_meta.sizes[d >> 2u][d & 3u] != out_meta.sizes[d >> 2u][d & 3u] ||
+      in2_meta.sizes[d >> 2u][d & 3u] != out_meta.sizes[d >> 2u][d & 3u]) {
+      same = false;
+    }
+  }
+  if (same) {
+    output[idx] = op_f16(input1[idx], input2[idx]);
+    return;
+  }
+
+  var rem = idx;
+  var l1: u32 = 0u;
+  var l2: u32 = 0u;
+  for (var d: u32 = 0u; d < out_meta.ndim; d = d + 1u) {
+    let coord = rem / out_meta.strides[d >> 2u][d & 3u];
+    rem = rem % out_meta.strides[d >> 2u][d & 3u];
+    l1 = l1 + min(coord, in1_meta.sizes[d >> 2u][d & 3u] - 1u) * in1_meta.strides[d >> 2u][d & 3u];
+    l2 = l2 + min(coord, in2_meta.sizes[d >> 2u][d & 3u] - 1u) * in2_meta.strides[d >> 2u][d & 3u];
+  }
+  output[idx] = op_f16(input1[l1], input2[l2]);
+}
+`;
