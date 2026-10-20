@@ -35,6 +35,29 @@ fn main(
 }
 `;
 
+const SHADER_VEC4 = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read_write> output: array<vec4<f32>>;
+
+struct Params {
+  num_elements: u32,
+}
+@group(0) @binding(2) var<uniform> params: Params;
+
+override wg_size: u32 = 256;
+
+@compute @workgroup_size(wg_size)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.num_elements) {
+    return;
+  }
+  output[idx] = max(input[idx], vec4<f32>(0.0));
+}
+`;
+
 /**
  * Positional argument tuple for `aten::relu.default`:
  * `[inTensor, outTensor]`
@@ -57,17 +80,22 @@ function recordIn(ctx: WgpuExecutionContext, [inTensor, outTensor]: ReluArgs): v
 
   const device = ctx.device;
   const wgSize = 256;
-  const totalWorkgroups = Math.ceil(outTensor.numel / wgSize);
+  const numel = outTensor.numel;
+  const useVec4 = numel % 4 === 0;
+  const effectiveNumel = useVec4 ? numel / 4 : numel;
+  const code = useVec4 ? SHADER_VEC4 : SHADER;
+
+  const totalWorkgroups = Math.ceil(effectiveNumel / wgSize);
   const workgroupCountX = Math.min(totalWorkgroups, 65535);
   const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
 
   const buffer = new ArrayBuffer(16);
-  new Uint32Array(buffer)[0] = outTensor.numel;
+  new Uint32Array(buffer)[0] = effectiveNumel;
   const uniformBuffer = ctx.uniformBuffer(buffer);
 
   const bundle = createComputeBundle(
     device,
-    SHADER,
+    code,
     [
       { binding: 0, buffer: inTensor.buffer },
       { binding: 1, buffer: outTensor.buffer },
@@ -88,10 +116,11 @@ function recordIn(ctx: WgpuExecutionContext, [inTensor, outTensor]: ReluArgs): v
 /**
  * WebGPU compute kernel for ExecuTorch `aten::relu.default`.
  *
- * Element-wise rectified linear unit: max(x, 0).
+ * Element-wise rectified linear unit: max(x, 0). Automatically vectorizes
+ * using 128-bit vec4<f32> when tensor size is divisible by 4.
  */
 export const relu: Shader<ReluArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: { scalar: SHADER, vec4: SHADER_VEC4 },
   recordIn,
 };
