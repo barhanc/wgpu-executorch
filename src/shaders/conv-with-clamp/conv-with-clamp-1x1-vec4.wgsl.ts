@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for fused 1x1 convolution with clamp bounds (vec4 vectorized GEMM).
  * Processes 128-bit vec4 memory transactions along channels (K) and spatial dimensions (N).
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV_WITH_CLAMP_1X1_VEC4 = /* wgsl */ `
 @group(0) @binding(0) var<storage, read_write> t_out: array<vec4<f32>>;

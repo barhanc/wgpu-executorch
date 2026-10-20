@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for depthwise convolution (up to 7x7 kernels).
  * Uses 2D spatial workgroup layout (16x16) and workgroup-shared cached weights and bias.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV2D_DEPTHWISE = /* wgsl */ `
 @group(0) @binding(0) var<storage, read_write> out: array<f32>;

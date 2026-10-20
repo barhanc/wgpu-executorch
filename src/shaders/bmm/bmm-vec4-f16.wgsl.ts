@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for float16 batched matrix multiplication vectorized with vec4<f16>.
  * Requires WebGPU shader-f16 feature.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_BMM_VEC4_F16 = /* wgsl */ `
 enable f16;

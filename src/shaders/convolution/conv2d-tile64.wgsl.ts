@@ -5,6 +5,9 @@
  * (8x8 elements per thread across 64 threads per workgroup).
  * Each workgroup computes a 64x64 output block (64 output channels x 64 spatial elements)
  * over K = IC * KH * KW, reading weight in 128-bit vec4 transactions.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV2D_TILE64 = /* wgsl */ `
 struct Params {

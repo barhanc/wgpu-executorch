@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for 64x64 register-tiled batched matrix multiplication.
  * Computes 8x8 elements per thread with 128-bit memory vectors and 3D workgroup grid.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_BMM_64X64 = /* wgsl */ `
 struct Params {

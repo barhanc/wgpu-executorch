@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for float16 2D convolution as implicit-im2col tiled GEMM.
  * Requires WebGPU shader-f16 feature.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV2D_GEMM_F16 = /* wgsl */ `
 enable f16;

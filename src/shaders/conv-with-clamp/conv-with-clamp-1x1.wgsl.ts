@@ -1,5 +1,8 @@
 /**
  * WGSL compute shader for fused 1x1 convolution with clamp bounds (scalar GEMM).
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV_WITH_CLAMP_1X1 = /* wgsl */ `
 @group(0) @binding(0) var<storage, read_write> t_out: array<f32>;
