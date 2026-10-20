@@ -3,7 +3,7 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
-import { encodeTensorMeta, TENSOR_META_WGSL } from './utils/meta';
+import { TENSOR_META_WGSL } from './utils/meta';
 
 const name = 'aten.split_with_sizes_copy.default';
 
@@ -55,6 +55,88 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 `;
 
 /**
+ * Fast block-gather shader for contiguous tensor slicing/splitting.
+ * Eliminates coordinate-unraveling integer divisions across all dimensions.
+ */
+const SHADER_BLOCK = /* wgsl */ `
+struct BlockParams {
+  c_in: u32,
+  c_out: u32,
+  inner_size: u32,
+  start: u32,
+  total_elements: u32,
+  _p0: u32,
+  _p1: u32,
+  _p2: u32,
+};
+
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@group(0) @binding(2) var<uniform> params: BlockParams;
+
+override wg_size: u32 = 256u;
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>
+) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.total_elements) {
+    return;
+  }
+  let inner_idx = idx % params.inner_size;
+  let slice_idx = idx / params.inner_size;
+  let c = slice_idx % params.c_out;
+  let b = slice_idx / params.c_out;
+
+  let in_idx = (b * params.c_in + params.start + c) * params.inner_size + inner_idx;
+  output[idx] = input[in_idx];
+}
+`;
+
+/**
+ * 128-bit vectorized block-gather shader for contiguous tensor slicing/splitting
+ * when inner_size is divisible by 4.
+ */
+const SHADER_BLOCK_VEC4 = /* wgsl */ `
+struct BlockParams {
+  c_in: u32,
+  c_out: u32,
+  inner_size: u32,
+  start: u32,
+  total_elements: u32,
+  _p0: u32,
+  _p1: u32,
+  _p2: u32,
+};
+
+@group(0) @binding(0) var<storage, read> input: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read_write> output: array<vec4<f32>>;
+@group(0) @binding(2) var<uniform> params: BlockParams;
+
+override wg_size: u32 = 256u;
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>
+) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.total_elements) {
+    return;
+  }
+  let inner_idx = idx % params.inner_size;
+  let slice_idx = idx / params.inner_size;
+  let c = slice_idx % params.c_out;
+  let b = slice_idx / params.c_out;
+
+  let in_idx = (b * params.c_in + params.start + c) * params.inner_size + inner_idx;
+  output[idx] = input[in_idx];
+}
+`;
+
+/**
  * Positional argument tuple for `aten::split_with_sizes_copy.default`:
  * `[in, split_sizes, dim, outs]`
  */
@@ -97,10 +179,15 @@ function recordIn(ctx: WgpuExecutionContext, args: SplitWithSizesArgs): void {
     throw new Error(`${name}: sizes must sum to the split dim extent`);
   }
 
-  const wgSize = 64;
-  const inMetaBuffer = ctx.uniformBuffer(encodeTensorMeta(inTensor));
+  let innerSize = 1;
+  for (let d = dim + 1; d < ndim; d++) {
+    innerSize *= inTensor.shape[d];
+  }
 
+  const wgSize = 256;
+  const cIn = inTensor.shape[dim];
   let start = 0;
+
   for (let i = 0; i < outs.length; i++) {
     const out = outs[i];
     if (inTensor.dtype !== 'float32' || out.dtype !== 'float32') {
@@ -110,33 +197,37 @@ function recordIn(ctx: WgpuExecutionContext, args: SplitWithSizesArgs): void {
       throw new Error(`${name}: output ${i} dim ${dim} != split size`);
     }
 
-    const outMetaBuffer = ctx.uniformBuffer(encodeTensorMeta(out));
-    const paramsBuffer = ctx.uniformBuffer(new Uint32Array([dim, start, 1, 0]));
-    start += splitSizes[i];
+    const cOut = splitSizes[i];
+    const isVec4 = innerSize % 4 === 0;
+    const effectiveInner = isVec4 ? innerSize / 4 : innerSize;
+    const totalElements = isVec4 ? out.numel / 4 : out.numel;
+
+    const paramsBuffer = ctx.uniformBuffer(
+      new Uint32Array([cIn, cOut, effectiveInner, start, totalElements, 0, 0, 0])
+    );
+    start += cOut;
 
     const bundle = createComputeBundle(
       ctx.device,
-      SHADER,
+      isVec4 ? SHADER_BLOCK_VEC4 : SHADER_BLOCK,
       [
         { binding: 0, buffer: inTensor.buffer },
         { binding: 1, buffer: out.buffer },
-        { binding: 2, buffer: outMetaBuffer },
-        { binding: 3, buffer: inMetaBuffer },
-        { binding: 4, buffer: paramsBuffer },
+        { binding: 2, buffer: paramsBuffer },
       ],
       // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
       { wg_size: wgSize }
     );
 
-    const workgroupCount = Math.ceil(out.numel / wgSize);
-    if (workgroupCount > 65535) {
-      throw new Error(`${name}: output exceeds dispatch limit`);
-    }
+    const totalWorkgroups = Math.ceil(totalElements / wgSize);
+    const workgroupCountX = Math.min(totalWorkgroups, 65535);
+    const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
+
     ctx.addDispatch({
       pipeline: bundle.pipeline,
       bindGroup: bundle.bindGroup,
-      workgroupCountX: workgroupCount,
-      workgroupCountY: 1,
+      workgroupCountX,
+      workgroupCountY,
     });
   }
 }
@@ -144,11 +235,11 @@ function recordIn(ctx: WgpuExecutionContext, args: SplitWithSizesArgs): void {
 /**
  * WebGPU compute kernel for ExecuTorch `aten::split_with_sizes_copy.default`.
  *
- * Splits a tensor into contiguous chunks along one dimension — one slice
- * gather dispatch per output tensor.
+ * Splits a tensor into contiguous chunks along one dimension using fast block-gather
+ * and 128-bit vectorization.
  */
 export const splitWithSizesCopy: Shader<SplitWithSizesArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: { default: SHADER, block: SHADER_BLOCK, blockVec4: SHADER_BLOCK_VEC4 },
   recordIn,
 };

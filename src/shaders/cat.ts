@@ -3,7 +3,7 @@ import type { Tensor } from '../tensor';
 import type { WgpuExecutionContext } from '../context';
 import { createComputeBundle } from '../command';
 
-import { encodeTensorMeta, TENSOR_META_WGSL } from './utils/meta';
+import { TENSOR_META_WGSL } from './utils/meta';
 
 const name = 'aten.cat.default';
 
@@ -54,6 +54,88 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 `;
 
 /**
+ * Fast block-scatter shader for contiguous tensor concatenation.
+ * Eliminates coordinate-unraveling integer divisions across all dimensions.
+ */
+const SHADER_BLOCK = /* wgsl */ `
+struct BlockParams {
+  c_in: u32,
+  c_out: u32,
+  inner_size: u32,
+  off_k: u32,
+  total_elements: u32,
+  _p0: u32,
+  _p1: u32,
+  _p2: u32,
+};
+
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@group(0) @binding(2) var<uniform> params: BlockParams;
+
+override wg_size: u32 = 256u;
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>
+) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.total_elements) {
+    return;
+  }
+  let inner_idx = idx % params.inner_size;
+  let slice_idx = idx / params.inner_size;
+  let c = slice_idx % params.c_in;
+  let b = slice_idx / params.c_in;
+
+  let out_idx = (b * params.c_out + params.off_k + c) * params.inner_size + inner_idx;
+  output[out_idx] = input[idx];
+}
+`;
+
+/**
+ * 128-bit vectorized block-scatter shader for contiguous tensor concatenation
+ * when inner_size is divisible by 4.
+ */
+const SHADER_BLOCK_VEC4 = /* wgsl */ `
+struct BlockParams {
+  c_in: u32,
+  c_out: u32,
+  inner_size: u32,
+  off_k: u32,
+  total_elements: u32,
+  _p0: u32,
+  _p1: u32,
+  _p2: u32,
+};
+
+@group(0) @binding(0) var<storage, read> input: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read_write> output: array<vec4<f32>>;
+@group(0) @binding(2) var<uniform> params: BlockParams;
+
+override wg_size: u32 = 256u;
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>
+) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.total_elements) {
+    return;
+  }
+  let inner_idx = idx % params.inner_size;
+  let slice_idx = idx / params.inner_size;
+  let c = slice_idx % params.c_in;
+  let b = slice_idx / params.c_in;
+
+  let out_idx = (b * params.c_out + params.off_k + c) * params.inner_size + inner_idx;
+  output[out_idx] = input[idx];
+}
+`;
+
+/**
  * Positional argument tuple for `aten::cat.default`:
  * `[tensors, dim, out]`
  */
@@ -81,11 +163,15 @@ function recordIn(ctx: WgpuExecutionContext, args: CatArgs): void {
     throw new Error(`${name}: dim out of range`);
   }
 
-  const wgSize = 64;
-  const outMetaBuffer = ctx.uniformBuffer(encodeTensorMeta(out));
+  let innerSize = 1;
+  for (let d = dim + 1; d < ndim; d++) {
+    innerSize *= out.shape[d];
+  }
 
   let offK = 0;
   let concatSum = 0;
+  const wgSize = 256;
+
   for (const inp of tensors) {
     if (inp.dtype !== 'float32' || out.dtype !== 'float32') {
       throw new Error(`${name}: Only float32 tensors are currently supported`);
@@ -100,33 +186,38 @@ function recordIn(ctx: WgpuExecutionContext, args: CatArgs): void {
     }
     concatSum += inp.shape[dim];
 
-    const inMetaBuffer = ctx.uniformBuffer(encodeTensorMeta(inp));
-    const paramsBuffer = ctx.uniformBuffer(new Uint32Array([dim, offK, 0, 0]));
-    offK += inp.shape[dim];
+    const cIn = inp.shape[dim];
+    const cOut = out.shape[dim];
+    const isVec4 = innerSize % 4 === 0;
+    const effectiveInner = isVec4 ? innerSize / 4 : innerSize;
+    const totalElements = isVec4 ? inp.numel / 4 : inp.numel;
+
+    const paramsBuffer = ctx.uniformBuffer(
+      new Uint32Array([cIn, cOut, effectiveInner, offK, totalElements, 0, 0, 0])
+    );
+    offK += cIn;
 
     const bundle = createComputeBundle(
       ctx.device,
-      SHADER,
+      isVec4 ? SHADER_BLOCK_VEC4 : SHADER_BLOCK,
       [
         { binding: 0, buffer: inp.buffer },
         { binding: 1, buffer: out.buffer },
-        { binding: 2, buffer: outMetaBuffer },
-        { binding: 3, buffer: inMetaBuffer },
-        { binding: 4, buffer: paramsBuffer },
+        { binding: 2, buffer: paramsBuffer },
       ],
       // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
       { wg_size: wgSize }
     );
 
-    const workgroupCount = Math.ceil(inp.numel / wgSize);
-    if (workgroupCount > 65535) {
-      throw new Error(`${name}: input exceeds dispatch limit`);
-    }
+    const totalWorkgroups = Math.ceil(totalElements / wgSize);
+    const workgroupCountX = Math.min(totalWorkgroups, 65535);
+    const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
+
     ctx.addDispatch({
       pipeline: bundle.pipeline,
       bindGroup: bundle.bindGroup,
-      workgroupCountX: workgroupCount,
-      workgroupCountY: 1,
+      workgroupCountX,
+      workgroupCountY,
     });
   }
 
@@ -138,11 +229,11 @@ function recordIn(ctx: WgpuExecutionContext, args: CatArgs): void {
 /**
  * WebGPU compute kernel for ExecuTorch `aten::cat.default`.
  *
- * Concatenates a list of tensors along one dimension. One dispatch per input
- * tensor scatters it into its disjoint slab of the output buffer.
+ * Concatenates a list of tensors along one dimension. Uses fast block-scatter
+ * and 128-bit vectorization for contiguous slices.
  */
 export const cat: Shader<CatArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: { default: SHADER, block: SHADER_BLOCK, blockVec4: SHADER_BLOCK_VEC4 },
   recordIn,
 };
