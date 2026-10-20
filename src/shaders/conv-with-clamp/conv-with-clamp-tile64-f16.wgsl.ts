@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for 64x64 register-tiled float16 2D convolution with clamp bounds.
  * Requires WebGPU shader-f16 feature.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV_WITH_CLAMP_TILE64_F16 = /* wgsl */ `
 enable f16;

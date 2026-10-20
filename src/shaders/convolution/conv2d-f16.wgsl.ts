@@ -1,6 +1,9 @@
 /**
  * Direct 2D convolution compute shader (fallback for general grouped cases) in float16.
  * Requires WebGPU shader-f16 feature.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV2D_F16 = /* wgsl */ `
 enable f16;

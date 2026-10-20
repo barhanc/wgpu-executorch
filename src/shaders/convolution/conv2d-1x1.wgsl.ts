@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for direct 2D 1x1 convolution (pointwise GEMM).
  * Avoids im2col overhead since 1x1 conv with stride 1, padding 0 is a direct matrix multiply.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV2D_1X1 = /* wgsl */ `
 @group(0) @binding(0) var<storage, read_write> out: array<f32>;

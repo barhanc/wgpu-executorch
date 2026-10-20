@@ -2,6 +2,9 @@
  * WGSL compute shader for vectorized 128-bit memory-bandwidth optimized batched
  * matrix multiplication. Operates on vec4<f32> for 4x wider memory transactions
  * when K and N are multiples of 4.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_BMM_VEC4 = /* wgsl */ `
 struct Params {

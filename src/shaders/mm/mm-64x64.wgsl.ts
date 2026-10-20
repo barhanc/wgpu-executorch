@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for 64x64 tiled GEMM with 2D register tiling (8x8 per thread).
  * Features 2x higher arithmetic intensity and memory reuse than the 32x32 kernel.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_MM_64X64 = /* wgsl */ `
 struct Params {

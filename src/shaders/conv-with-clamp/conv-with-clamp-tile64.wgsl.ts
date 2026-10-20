@@ -5,6 +5,9 @@
  * using 2D register tiling (8x8 elements per thread across 64 threads per workgroup).
  * Each workgroup computes a 64x64 output block (64 output channels x 64 spatial elements)
  * over K = IC * Kh * Kw, reading weight in 128-bit vec4 transactions.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV_WITH_CLAMP_TILE64 = /* wgsl */ `
 @group(0) @binding(0) var<storage, read_write> t_out: array<f32>;

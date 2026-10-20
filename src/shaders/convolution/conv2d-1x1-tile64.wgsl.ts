@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for 64x64 register-tiled 1x1 convolution (B = 1).
  * Features 2x higher arithmetic intensity, computing 8x8 elements per thread (64 elements).
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV2D_1X1_64X64 = /* wgsl */ `
 @group(0) @binding(0) var<storage, read_write> out: array<vec4<f32>>;

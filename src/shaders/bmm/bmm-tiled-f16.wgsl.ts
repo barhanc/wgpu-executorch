@@ -1,6 +1,9 @@
 /**
  * WGSL compute shader for float16 batched matrix multiplication (tiled).
  * Requires WebGPU shader-f16 feature.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_BMM_TILED_F16 = /* wgsl */ `
 enable f16;

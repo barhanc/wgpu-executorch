@@ -2,6 +2,9 @@
  * WGSL compute shader for float16 depthwise convolution (up to 7x7 kernels).
  * Uses 2D spatial workgroup layout (16x16) and workgroup-shared cached weights and bias.
  * Requires WebGPU shader-f16 feature.
+ *
+ * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
+ * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
  */
 export const SHADER_CONV2D_DEPTHWISE_F16 = /* wgsl */ `
 enable f16;
