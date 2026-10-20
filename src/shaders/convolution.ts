@@ -125,7 +125,7 @@ const TILE: u32 = 32u;
 const RPT: u32 = 4u;
 
 var<workgroup> a_sub: array<array<f32, 32>, 32>;
-var<workgroup> b_sub: array<array<f32, 32>, 32>;
+var<workgroup> b_sub: array<array<vec4<f32>, 8>, 32>;
 
 fn gK() -> u32 { return params.IC * params.KH * params.KW; }
 fn gN() -> u32 { return params.B * params.OH * params.OW; }
@@ -142,11 +142,9 @@ fn main(
   let tile_row = local_id.y * RPT;
   let tile_col = local_id.x * RPT;
 
-  var acc: array<array<f32, 4>, 4>;
+  var acc: array<vec4<f32>, 4>;
   for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-    for (var ic: u32 = 0u; ic < RPT; ic = ic + 1u) {
-      acc[ir][ic] = 0.0;
-    }
+    acc[ir] = vec4<f32>(0.0);
   }
 
   let ohw = params.OH * params.OW;
@@ -202,6 +200,7 @@ fn main(
         k_kw = i32(rem % params.KW);
       }
 
+      var b_row: vec4<f32>;
       for (var kk: u32 = 0u; kk < RPT; kk = kk + 1u) {
         let col = local_id.x * RPT + kk;
         let k_col = k_start + col;
@@ -215,47 +214,43 @@ fn main(
           let ih = col_oh_arr[kk] * sH - pH + k_kh * dH;
           let iw = col_ow_arr[kk] * sW - pW + k_kw * dW;
           if (ih >= 0 && ih < iH && iw >= 0 && iw < iW) {
-            b_sub[arow][col] = input[((col_b[kk] * params.IC + k_ic) * params.IH + u32(ih)) * params.IW + u32(iw)];
+            b_row[kk] = input[((col_b[kk] * params.IC + k_ic) * params.IH + u32(ih)) * params.IW + u32(iw)];
           } else {
-            b_sub[arow][col] = 0.0;
+            b_row[kk] = 0.0;
           }
         } else {
-          b_sub[arow][col] = 0.0;
+          b_row[kk] = 0.0;
         }
       }
+      b_sub[arow][local_id.x] = b_row;
     }
     workgroupBarrier();
     for (var k: u32 = 0u; k < TILE; k = k + 1u) {
-      let b0 = b_sub[k][tile_col + 0u];
-      let b1 = b_sub[k][tile_col + 1u];
-      let b2 = b_sub[k][tile_col + 2u];
-      let b3 = b_sub[k][tile_col + 3u];
+      let b_vec = b_sub[k][local_id.x];
       for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
         let aval = a_sub[tile_row + ir][k];
-        acc[ir][0] = acc[ir][0] + aval * b0;
-        acc[ir][1] = acc[ir][1] + aval * b1;
-        acc[ir][2] = acc[ir][2] + aval * b2;
-        acc[ir][3] = acc[ir][3] + aval * b3;
+        acc[ir] = acc[ir] + aval * b_vec;
       }
     }
     workgroupBarrier();
   }
 
   for (var ir: u32 = 0u; ir < RPT; ir = ir + 1u) {
-    for (var ic: u32 = 0u; ic < RPT; ic = ic + 1u) {
-      let m = tile_row0 + tile_row + ir; // oc
-      let n = tile_col0 + tile_col + ic; // spatial index
-      if (m < M && n < N) {
-        var val = acc[ir][ic];
-        if (params.has_bias != 0u) {
-          val = val + bias[m];
+    let m = tile_row0 + tile_row + ir;
+    if (m < M) {
+      var bias_val = 0.0;
+      if (params.has_bias != 0u) {
+        bias_val = bias[m];
+      }
+      let v = acc[ir] + vec4<f32>(bias_val);
+      for (var ic: u32 = 0u; ic < RPT; ic = ic + 1u) {
+        let n = tile_col0 + tile_col + ic;
+        if (n < N) {
+          let b = col_b[ic];
+          let oh = u32(col_oh_arr[ic]);
+          let ow = u32(col_ow_arr[ic]);
+          out[((b * params.OC + m) * params.OH + oh) * params.OW + ow] = v[ic];
         }
-        let ohw = params.OH * params.OW;
-        let b = n / ohw;
-        let sp = n % ohw;
-        let oh = sp / params.OW;
-        let ow = sp % params.OW;
-        out[((b * params.OC + m) * params.OH + oh) * params.OW + ow] = val;
       }
     }
   }

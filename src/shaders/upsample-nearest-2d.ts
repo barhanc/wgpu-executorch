@@ -56,6 +56,47 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 `;
 
 /**
+ * WGSL compute shader for nearest-neighbour 2D upsampling using 2D spatial grid.
+ * Eliminates per-element unraveling divisions.
+ */
+const SHADER_SPATIAL = /* wgsl */ `
+@group(0) @binding(0) var<storage, read_write> out: array<f32>;
+@group(0) @binding(1) var<storage, read> inp: array<f32>;
+
+struct Params {
+  N: u32,
+  C: u32,
+  IH: u32,
+  IW: u32,
+  OH: u32,
+  OW: u32,
+  _p0: u32,
+  _p1: u32,
+}
+@group(0) @binding(2) var<uniform> params: Params;
+
+@compute @workgroup_size(16, 16, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(workgroup_id) wg_id: vec3<u32>
+) {
+  let ow = gid.x;
+  let oh = gid.y;
+  let c_idx = wg_id.z;
+
+  if (ow >= params.OW || oh >= params.OH) {
+    return;
+  }
+
+  let ih = (oh * params.IH) / params.OH;
+  let iw = (ow * params.IW) / params.OW;
+  let in_idx = (c_idx * params.IH + ih) * params.IW + iw;
+  let out_idx = (c_idx * params.OH + oh) * params.OW + ow;
+  out[out_idx] = inp[in_idx];
+}
+`;
+
+/**
  * Positional argument tuple for `aten::upsample_nearest2d.vec`:
  * `[in, output_size, scales, out]`
  */
@@ -92,6 +133,24 @@ function recordIn(ctx: WgpuExecutionContext, args: UpsampleNearest2dArgs): void 
 
   const paramsBuffer = ctx.uniformBuffer(new Uint32Array([b, c, ih, iw, oh, ow, 0, 0]));
 
+  // Use 2D spatial grid when dimensions fit in workgroup limits
+  if (b * c <= 65535 && Math.ceil(ow / 16) <= 65535 && Math.ceil(oh / 16) <= 65535) {
+    const bundle = createComputeBundle(ctx.device, SHADER_SPATIAL, [
+      { binding: 0, buffer: outTensor.buffer },
+      { binding: 1, buffer: inTensor.buffer },
+      { binding: 2, buffer: paramsBuffer },
+    ]);
+
+    ctx.addDispatch({
+      pipeline: bundle.pipeline,
+      bindGroup: bundle.bindGroup,
+      workgroupCountX: Math.ceil(ow / 16),
+      workgroupCountY: Math.ceil(oh / 16),
+      workgroupCountZ: b * c,
+    });
+    return;
+  }
+
   const wgSize = 256;
   const total = b * c * oh * ow;
   const workgroupCountX = Math.min(Math.ceil(total / wgSize), 65535);
@@ -124,6 +183,6 @@ function recordIn(ctx: WgpuExecutionContext, args: UpsampleNearest2dArgs): void 
  */
 export const upsampleNearest2d: Shader<UpsampleNearest2dArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: { default: SHADER, spatial: SHADER_SPATIAL },
   recordIn,
 };
