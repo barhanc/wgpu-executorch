@@ -2,37 +2,122 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>WebGPU FP16 vs FP32 Browser Benchmark</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>wgpu-executorch • WebGPU Hardware Benchmark</title>
   <style>
+    :root {
+      --bg: #0f1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --warning: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: monospace;
-      background: #111;
-      color: #eee;
-      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 32px 24px;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 12px;
+      background: #1f6feb26;
+      color: var(--accent);
+      border: 1px solid #388bfd40;
+    }
+    .badge-f16 {
+      background: #23863626;
+      color: var(--success);
+      border: 1px solid #2ea04340;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+    }
+    #status {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--warning);
+      margin-bottom: 8px;
+    }
+    #info {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .btn {
+      background: #238636;
+      color: #fff;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn:hover:not(:disabled) {
+      background: #2ea043;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
     table {
       border-collapse: collapse;
       width: 100%;
-      max-width: 900px;
-      margin-top: 20px;
+      margin-top: 16px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.85rem;
     }
     th, td {
-      border: 1px solid #444;
-      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
       text-align: left;
     }
     th {
-      background: #222;
-      color: #61afef;
+      background: #21262d;
+      color: #f0f6fc;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+    }
+    tr:hover {
+      background: rgba(255, 255, 255, 0.02);
     }
     .speedup {
       font-weight: bold;
-      color: #98c379;
-    }
-    #status {
-      font-size: 1.1em;
-      color: #e5c07b;
-      margin-bottom: 16px;
+      color: var(--success);
     }
     #json-output {
       display: none;
@@ -40,23 +125,40 @@
   </style>
 </head>
 <body>
-  <h1>WebGPU Browser Hardware Benchmark (FP32 vs FP16)</h1>
-  <div id="status">Initializing WebGPU...</div>
-  <div id="info"></div>
-  <table id="results-table" style="display:none;">
-    <thead>
-      <tr>
-        <th>Category</th>
-        <th>Operator / Kernel</th>
-        <th>Tensor Shape</th>
-        <th>FP32 (ms)</th>
-        <th>FP16 (ms)</th>
-        <th>Speedup</th>
-      </tr>
-    </thead>
-    <tbody id="results-body"></tbody>
-  </table>
-  <pre id="json-output"></pre>
+  <div class="container">
+    <header>
+      <div>
+        <h1>⚡ wgpu-executorch Hardware Benchmark</h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">
+          Direct WebGPU operator benchmarking: FP32 vs FP16 on real machine GPU
+        </p>
+      </div>
+      <button id="run-btn" class="btn">Re-run Benchmark</button>
+    </header>
+
+    <div class="card">
+      <div id="status">Initializing WebGPU Device...</div>
+      <div id="info"></div>
+    </div>
+
+    <div class="card" style="padding: 0; overflow-x: auto;">
+      <table id="results-table" style="display:none; margin-top: 0;">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Operator / Kernel</th>
+            <th>Tensor Shape</th>
+            <th style="text-align: right;">FP32</th>
+            <th style="text-align: right;">FP16</th>
+            <th style="text-align: right;">Speedup</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+
+    <pre id="json-output"></pre>
+  </div>
   <script type="module" src="/main.ts"></script>
 </body>
 </html>
