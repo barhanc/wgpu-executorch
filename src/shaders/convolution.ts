@@ -8,6 +8,7 @@ import { SHADER_CONV2D_GEMM } from './convolution/conv2d-gemm.wgsl';
 import { SHADER_CONV2D_1X1 } from './convolution/conv2d-1x1.wgsl';
 import { SHADER_CONV2D_1X1_VEC4 } from './convolution/conv2d-1x1-vec4.wgsl';
 import { SHADER_CONV2D_1X1_64X64 } from './convolution/conv2d-1x1-tile64.wgsl';
+import { SHADER_CONV2D_TILE64 } from './convolution/conv2d-tile64.wgsl';
 import { SHADER_CONV2D_DEPTHWISE } from './convolution/conv2d-depthwise.wgsl';
 import { SHADER_CONV_TRANSPOSE2D } from './convolution/conv-transpose2d.wgsl';
 
@@ -156,6 +157,8 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
     dW === 1;
   const is1x1Vec4 = is1x1 && ic % 4 === 0 && (oh * ow) % 4 === 0 && oc % 4 === 0;
   const is1x1Tile64 = is1x1Vec4 && b === 1 && oc >= 64 && oh * ow >= 64 && ic >= 16;
+  const isDenseTile64 =
+    !transposed && groups === 1 && oc >= 64 && b * oh * ow >= 64 && (ic * kh * kw) % 4 === 0;
 
   const isDepthwise =
     !transposed &&
@@ -177,6 +180,8 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
       code = SHADER_CONV2D_1X1_VEC4;
     } else if (is1x1) {
       code = SHADER_CONV2D_1X1;
+    } else if (isDenseTile64) {
+      code = SHADER_CONV2D_TILE64;
     } else {
       code = SHADER_CONV2D_GEMM;
     }
@@ -203,6 +208,11 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
   } else if (is1x1Tile64) {
     // 64x64 register-tiled GEMM for pointwise 1x1 conv
     workgroupCountX = Math.ceil((oh * ow) / 64);
+    workgroupCountY = Math.ceil(oc / 64);
+    constants = {};
+  } else if (isDenseTile64) {
+    // 64x64 register-tiled GEMM for general dense convolution
+    workgroupCountX = Math.ceil((b * oh * ow) / 64);
     workgroupCountY = Math.ceil(oc / 64);
     constants = {};
   } else {
@@ -255,6 +265,7 @@ export const convolution: Shader<ConvolutionArgs, typeof name> = {
     conv2d1x1: SHADER_CONV2D_1X1,
     conv2d1x1Vec4: SHADER_CONV2D_1X1_VEC4,
     conv2d1x1Tile64: SHADER_CONV2D_1X1_64X64,
+    conv2dTile64: SHADER_CONV2D_TILE64,
     conv2dDepthwise3x3: SHADER_CONV2D_DEPTHWISE,
     convTranspose2d: SHADER_CONV_TRANSPOSE2D,
   },

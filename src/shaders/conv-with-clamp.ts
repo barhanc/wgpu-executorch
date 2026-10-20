@@ -8,6 +8,7 @@ import { SHADER_CONV_WITH_CLAMP_GEMM } from './conv-with-clamp/conv-with-clamp-g
 import { SHADER_CONV_WITH_CLAMP_1X1 } from './conv-with-clamp/conv-with-clamp-1x1.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_VEC4 } from './conv-with-clamp/conv-with-clamp-1x1-vec4.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_64X64 } from './conv-with-clamp/conv-with-clamp-1x1-tile64.wgsl';
+import { SHADER_CONV_WITH_CLAMP_TILE64 } from './conv-with-clamp/conv-with-clamp-tile64.wgsl';
 import { SHADER_CONV_WITH_CLAMP_DEPTHWISE } from './conv-with-clamp/conv-with-clamp-depthwise.wgsl';
 
 const name = 'et_vk.conv_with_clamp.default';
@@ -152,6 +153,9 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   const is1x1Tile64 =
     is1x1Vec4 && n === 1 && oc >= 64 && expectedHout * expectedWout >= 64 && ic >= 16;
 
+  const isDenseTile64 =
+    groups === 1 && oc >= 64 && n * expectedHout * expectedWout >= 64 && (ic * kh * kw) % 4 === 0;
+
   const isDepthwise =
     groups === oc && ic === oc && icPerGroup === 1 && kh * kw <= 49 && n * oc <= 65535;
 
@@ -165,6 +169,8 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
       code = SHADER_CONV_WITH_CLAMP_1X1_VEC4;
     } else if (is1x1) {
       code = SHADER_CONV_WITH_CLAMP_1X1;
+    } else if (isDenseTile64) {
+      code = SHADER_CONV_WITH_CLAMP_TILE64;
     } else {
       code = SHADER_CONV_WITH_CLAMP_GEMM;
     }
@@ -191,6 +197,11 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   } else if (is1x1Tile64) {
     // 64x64 register-tiled GEMM for pointwise 1x1 conv with clamp
     workgroupCountX = Math.ceil((expectedHout * expectedWout) / 64);
+    workgroupCountY = Math.ceil(oc / 64);
+    constants = {};
+  } else if (isDenseTile64) {
+    // 64x64 register-tiled GEMM for general dense convolution with clamp
+    workgroupCountX = Math.ceil((n * expectedHout * expectedWout) / 64);
     workgroupCountY = Math.ceil(oc / 64);
     constants = {};
   } else {
@@ -242,6 +253,7 @@ export const convWithClamp: Shader<ConvWithClampArgs, typeof name> = {
     convWithClamp1x1: SHADER_CONV_WITH_CLAMP_1X1,
     convWithClamp1x1Vec4: SHADER_CONV_WITH_CLAMP_1X1_VEC4,
     convWithClamp1x1Tile64: SHADER_CONV_WITH_CLAMP_1X1_64X64,
+    convWithClampTile64: SHADER_CONV_WITH_CLAMP_TILE64,
     convWithClampDepthwise3x3: SHADER_CONV_WITH_CLAMP_DEPTHWISE,
   },
   recordIn,
