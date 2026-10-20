@@ -53,6 +53,44 @@ fn main(
 `;
 
 /**
+ * High-performance 2D matrix transpose using shared-memory tile (16x16 with 17-stride to prevent bank conflicts).
+ * Ensures fully coalesced reads and fully coalesced writes without integer coordinate divisions.
+ */
+const SHADER_TRANSPOSE_2D = /* wgsl */ `
+struct Transpose2dParams {
+  rows: u32,
+  cols: u32,
+};
+
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@group(0) @binding(2) var<uniform> params: Transpose2dParams;
+
+var<workgroup> tile: array<array<f32, 17>, 16>;
+
+@compute @workgroup_size(16, 16, 1)
+fn main(
+  @builtin(workgroup_id) wg_id: vec3<u32>,
+  @builtin(local_invocation_id) local_id: vec3<u32>
+) {
+  let x = wg_id.x * 16u + local_id.x;
+  let y = wg_id.y * 16u + local_id.y;
+
+  if (x < params.cols && y < params.rows) {
+    tile[local_id.y][local_id.x] = input[y * params.cols + x];
+  }
+  workgroupBarrier();
+
+  let out_x = wg_id.y * 16u + local_id.x;
+  let out_y = wg_id.x * 16u + local_id.y;
+
+  if (out_x < params.rows && out_y < params.cols) {
+    output[out_y * params.rows + out_x] = tile[local_id.x][local_id.y];
+  }
+}
+`;
+
+/**
  * Positional argument tuple for `aten::permute_copy.default`:
  * `[in, dims, out]`
  */
@@ -104,6 +142,27 @@ function recordIn(ctx: WgpuExecutionContext, args: PermuteCopyArgs): void {
     }
   }
 
+  // Fast path: 2D matrix transpose
+  if (rank === 2 && perm[0] === 1 && perm[1] === 0) {
+    const rows = inTensor.shape[0];
+    const cols = inTensor.shape[1];
+    const paramsBuffer = ctx.uniformBuffer(new Uint32Array([rows, cols]));
+
+    const bundle = createComputeBundle(ctx.device, SHADER_TRANSPOSE_2D, [
+      { binding: 0, buffer: inTensor.buffer },
+      { binding: 1, buffer: outTensor.buffer },
+      { binding: 2, buffer: paramsBuffer },
+    ]);
+
+    ctx.addDispatch({
+      pipeline: bundle.pipeline,
+      bindGroup: bundle.bindGroup,
+      workgroupCountX: Math.ceil(cols / 16),
+      workgroupCountY: Math.ceil(rows / 16),
+    });
+    return;
+  }
+
   const wgSize = 64;
   const outMetaBuffer = ctx.uniformBuffer(encodeTensorMeta(outTensor));
   const inMetaBuffer = ctx.uniformBuffer(encodeTensorMeta(inTensor));
@@ -140,6 +199,6 @@ function recordIn(ctx: WgpuExecutionContext, args: PermuteCopyArgs): void {
  */
 export const permuteCopy: Shader<PermuteCopyArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: { default: SHADER, transpose2d: SHADER_TRANSPOSE_2D },
   recordIn,
 };

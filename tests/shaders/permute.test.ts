@@ -36,4 +36,36 @@ describe('aten.permute_copy.default', () => {
     await expectTensorClose(out, [1, 4, 2, 5, 3, 6, 7, 10, 8, 11, 9, 12]);
     ctx.destroy();
   });
+
+  it('transposes a larger matrix with multi-workgroup shared-memory tiling', async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+
+    const R = 64;
+    const C = 48;
+    const data = new Float32Array(R * C);
+    const expected = new Float32Array(C * R);
+
+    for (let r = 0; r < R; r++) {
+      for (let c = 0; c < C; c++) {
+        data[r * C + c] = r * 100 + c;
+        expected[c * R + r] = r * 100 + c;
+      }
+    }
+
+    const inp = ctx.tensor('float32', [R, C]).setData(data);
+    const out = ctx.tensor('float32', [C, R]);
+
+    ctx.recordShader(shaders.permuteCopy, [inp, [1, 0], out]);
+    ctx.submit();
+    await ctx.sync();
+
+    const actual = new Float32Array(await out.getData());
+    for (let i = 0; i < C * R; i++) {
+      if (actual[i] !== expected[i]) {
+        throw new Error(`Mismatch at ${i}: got ${actual[i]} expected ${expected[i]}`);
+      }
+    }
+    ctx.destroy();
+  });
 });
