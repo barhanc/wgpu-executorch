@@ -1,6 +1,7 @@
 node_modules
 dist
 dist-example
+dist-benchmark
 .vite
 coverage
 *.log
