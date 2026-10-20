@@ -115,6 +115,113 @@ fn main(
 }
 `;
 
+const SHADER_F16 = /* wgsl */ `
+enable f16;
+
+@group(0) @binding(0) var<storage, read> input1: array<f16>;
+@group(0) @binding(1) var<storage, read> input2: array<f16>;
+@group(0) @binding(2) var<storage, read_write> output: array<f16>;
+
+${TENSOR_META_WGSL}
+@group(0) @binding(3) var<uniform> out_meta: TensorMeta;
+@group(0) @binding(4) var<uniform> in1_meta: TensorMeta;
+@group(0) @binding(5) var<uniform> in2_meta: TensorMeta;
+
+override wg_size: u32 = 256u;
+override alpha: f32 = 1.0;
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>
+) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= out_meta.numel) {
+    return;
+  }
+  let a_h = f16(alpha);
+
+  var same = true;
+  for (var d: u32 = 0u; d < out_meta.ndim; d = d + 1u) {
+    if (
+      in1_meta.sizes[d >> 2u][d & 3u] != out_meta.sizes[d >> 2u][d & 3u] ||
+      in2_meta.sizes[d >> 2u][d & 3u] != out_meta.sizes[d >> 2u][d & 3u]
+    ) {
+      same = false;
+    }
+  }
+  if (same) {
+    output[idx] = input1[idx] + a_h * input2[idx];
+    return;
+  }
+
+  var rem = idx;
+  var l1: u32 = 0u;
+  var l2: u32 = 0u;
+  for (var d: u32 = 0u; d < out_meta.ndim; d = d + 1u) {
+    let coord = rem / out_meta.strides[d >> 2u][d & 3u];
+    rem = rem % out_meta.strides[d >> 2u][d & 3u];
+    l1 = l1 + min(coord, in1_meta.sizes[d >> 2u][d & 3u] - 1u) * in1_meta.strides[d >> 2u][d & 3u];
+    l2 = l2 + min(coord, in2_meta.sizes[d >> 2u][d & 3u] - 1u) * in2_meta.strides[d >> 2u][d & 3u];
+  }
+  output[idx] = input1[l1] + a_h * input2[l2];
+}
+`;
+
+const SHADER_ELEMENTWISE_VEC4_F16 = /* wgsl */ `
+enable f16;
+
+@group(0) @binding(0) var<storage, read> input1: array<vec4<f16>>;
+@group(0) @binding(1) var<storage, read> input2: array<vec4<f16>>;
+@group(0) @binding(2) var<storage, read_write> output: array<vec4<f16>>;
+
+struct Params {
+  num_elements: u32,
+}
+@group(0) @binding(3) var<uniform> params: Params;
+
+override wg_size: u32 = 256u;
+override alpha: f32 = 1.0;
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.num_elements) {
+    return;
+  }
+  output[idx] = input1[idx] + f16(alpha) * input2[idx];
+}
+`;
+
+const SHADER_ELEMENTWISE_F16 = /* wgsl */ `
+enable f16;
+
+@group(0) @binding(0) var<storage, read> input1: array<f16>;
+@group(0) @binding(1) var<storage, read> input2: array<f16>;
+@group(0) @binding(2) var<storage, read_write> output: array<f16>;
+
+struct Params {
+  num_elements: u32,
+}
+@group(0) @binding(3) var<uniform> params: Params;
+
+override wg_size: u32 = 256u;
+override alpha: f32 = 1.0;
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.num_elements) {
+    return;
+  }
+  output[idx] = input1[idx] + f16(alpha) * input2[idx];
+}
+`;
+
 /**
  * Positional argument tuple for `aten::add.Tensor`:
  * Standard ExecuTorch schema: `[in1, in2, alpha, out]`
@@ -134,11 +241,21 @@ function recordIn(ctx: WgpuExecutionContext, args: AddArgs): void {
   const [in1, in2] = args;
   const [alpha, out] = args.length === 4 ? [args[2], args[3]] : [1.0, args[2]];
 
-  if (in1.dtype !== 'float32' || in2.dtype !== 'float32' || out.dtype !== 'float32') {
-    throw new Error(`${name}: Only float32 tensors are currently supported`);
+  if (
+    (in1.dtype !== 'float32' && in1.dtype !== 'float16') ||
+    in2.dtype !== in1.dtype ||
+    out.dtype !== in1.dtype
+  ) {
+    throw new Error(`${name}: Tensors must have matching float32 or float16 dtype`);
   }
   if (!isBroadcastable(in1.shape, out.shape) || !isBroadcastable(in2.shape, out.shape)) {
     throw new Error(`${name}: Input shapes are not broadcastable to output shape`);
+  }
+
+  const device = ctx.device;
+  const isF16 = in1.dtype === 'float16';
+  if (isF16 && !device.features.has('shader-f16')) {
+    throw new Error(`${name}: Device does not support shader-f16 feature`);
   }
 
   const sameShape =
@@ -147,13 +264,15 @@ function recordIn(ctx: WgpuExecutionContext, args: AddArgs): void {
     in1.shape.every((s, i) => s === out.shape[i]) &&
     in2.shape.every((s, i) => s === out.shape[i]);
 
-  const device = ctx.device;
   const wgSize = 256;
 
   if (sameShape) {
     const numel = out.numel;
     const useVec4 = numel % 4 === 0;
-    const code = useVec4 ? SHADER_ELEMENTWISE_VEC4 : SHADER_ELEMENTWISE;
+    let code = useVec4 ? SHADER_ELEMENTWISE_VEC4 : SHADER_ELEMENTWISE;
+    if (isF16) {
+      code = useVec4 ? SHADER_ELEMENTWISE_VEC4_F16 : SHADER_ELEMENTWISE_F16;
+    }
     const effectiveNumel = useVec4 ? numel / 4 : numel;
 
     const totalWorkgroups = Math.ceil(effectiveNumel / wgSize);
@@ -195,7 +314,7 @@ function recordIn(ctx: WgpuExecutionContext, args: AddArgs): void {
 
   const bundle = createComputeBundle(
     device,
-    SHADER,
+    isF16 ? SHADER_F16 : SHADER,
     [
       { binding: 0, buffer: in1.buffer },
       { binding: 1, buffer: in2.buffer },
@@ -229,6 +348,9 @@ export const add: Shader<AddArgs, typeof name> = {
     broadcast: SHADER,
     elementwise: SHADER_ELEMENTWISE,
     elementwiseVec4: SHADER_ELEMENTWISE_VEC4,
+    broadcastF16: SHADER_F16,
+    elementwiseF16: SHADER_ELEMENTWISE_F16,
+    elementwiseVec4F16: SHADER_ELEMENTWISE_VEC4_F16,
   },
   recordIn,
 };

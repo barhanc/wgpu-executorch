@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { WgpuExecutionContext, shaders } from '../../src';
 import { setupGPU, expectTensorClose } from '../helpers';
 
@@ -37,6 +37,31 @@ describe('aten.bmm.default', () => {
     await ctx.sync();
 
     await expectTensorClose(out, [5, 6, 7, 8, 10, 12, 21, 24], 1e-3);
+    ctx.destroy();
+  });
+
+  it('multiplies float16 batched matrices using shader-f16', async () => {
+    const device = await setupGPU();
+    if (!device.features.has('shader-f16')) return;
+    const ctx = new WgpuExecutionContext(device);
+
+    const a = ctx.tensor('float16', [2, 2, 2]).setData(new Float16Array([1, 0, 0, 1, 2, 0, 0, 3]));
+    const b = ctx.tensor('float16', [2, 2, 2]).setData(new Float16Array([5, 6, 7, 8, 5, 6, 7, 8]));
+    const out = ctx.tensor('float16', [2, 2, 2]);
+
+    ctx.recordShader(shaders.bmm, [a, b, out]);
+    ctx.submit();
+    await ctx.sync();
+
+    const actual = new Float16Array(await out.getData());
+    expect(actual[0]).toBeCloseTo(5, 1);
+    expect(actual[1]).toBeCloseTo(6, 1);
+    expect(actual[2]).toBeCloseTo(7, 1);
+    expect(actual[3]).toBeCloseTo(8, 1);
+    expect(actual[4]).toBeCloseTo(10, 1);
+    expect(actual[5]).toBeCloseTo(12, 1);
+    expect(actual[6]).toBeCloseTo(21, 1);
+    expect(actual[7]).toBeCloseTo(24, 1);
     ctx.destroy();
   });
 });

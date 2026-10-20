@@ -99,4 +99,65 @@ describe('aten.mm.default', () => {
     }
     ctx.destroy();
   });
+
+  it('multiplies float16 2x2 matrices using shader-f16', async () => {
+    const device = await setupGPU();
+    if (!device.features.has('shader-f16')) return;
+    const ctx = new WgpuExecutionContext(device);
+
+    const a = ctx.tensor('float16', [2, 2]).setData(new Float16Array([1, 2, 3, 4]));
+    const b = ctx.tensor('float16', [2, 2]).setData(new Float16Array([5, 6, 7, 8]));
+    const out = ctx.tensor('float16', [2, 2]);
+
+    ctx.recordShader(shaders.mm, [a, b, out]);
+    ctx.submit();
+    await ctx.sync();
+
+    const actual = new Float16Array(await out.getData());
+    expect(actual[0]).toBeCloseTo(19, 1);
+    expect(actual[1]).toBeCloseTo(22, 1);
+    expect(actual[2]).toBeCloseTo(43, 1);
+    expect(actual[3]).toBeCloseTo(50, 1);
+    ctx.destroy();
+  });
+
+  it('multiplies float16 64x64 matrices (64x64 register-tiled f16 path)', async () => {
+    const device = await setupGPU();
+    if (!device.features.has('shader-f16')) return;
+    const ctx = new WgpuExecutionContext(device);
+
+    const N = 64;
+    const aData = new Float16Array(N * N);
+    const bData = new Float16Array(N * N);
+    const expected = new Float16Array(N * N);
+
+    for (let i = 0; i < N * N; i++) {
+      aData[i] = (i % 7) - 3;
+      bData[i] = (i % 5) - 2;
+    }
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        let sum = 0;
+        for (let k = 0; k < N; k++) {
+          sum += aData[r * N + k] * bData[k * N + c];
+        }
+        expected[r * N + c] = sum;
+      }
+    }
+
+    const a = ctx.tensor('float16', [N, N]).setData(aData);
+    const b = ctx.tensor('float16', [N, N]).setData(bData);
+    const out = ctx.tensor('float16', [N, N]);
+
+    ctx.recordShader(shaders.mm, [a, b, out]);
+    ctx.submit();
+    await ctx.sync();
+
+    const actual = new Float16Array(await out.getData());
+    for (let i = 0; i < N * N; i++) {
+      expect(Math.abs(actual[i] - expected[i])).toBeLessThan(0.5);
+    }
+    ctx.destroy();
+  });
 });
