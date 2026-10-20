@@ -81,6 +81,55 @@ fn main(
 `;
 
 /**
+ * 2D spatial grid compute shader for constant padding when only spatial (H, W) dims are padded.
+ * Eliminates per-element 4D coordinate unraveling integer divisions.
+ */
+const SHADER_SPATIAL_2D = /* wgsl */ `
+@group(0) @binding(0) var<storage, read_write> out: array<f32>;
+@group(0) @binding(1) var<storage, read> inp: array<f32>;
+
+struct Params {
+  out_dims: vec4<u32>,
+  in_dims: vec4<u32>,
+  left: vec4<u32>,
+  out_numel: u32,
+  value: f32,
+  _p0: u32,
+  _p1: u32,
+}
+@group(0) @binding(2) var<uniform> params: Params;
+
+@compute @workgroup_size(16, 16, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(workgroup_id) wg_id: vec3<u32>
+) {
+  let ow = gid.x;
+  let oh = gid.y;
+  let slice = wg_id.z;
+
+  if (ow >= params.out_dims.w || oh >= params.out_dims.z) {
+    return;
+  }
+
+  let iw = ow - params.left.w;
+  let ih = oh - params.left.z;
+
+  let out_idx = (slice * params.out_dims.z + oh) * params.out_dims.w + ow;
+
+  let in_w = ow >= params.left.w && iw < params.in_dims.w;
+  let in_h = oh >= params.left.z && ih < params.in_dims.z;
+
+  if (in_w && in_h) {
+    let in_idx = (slice * params.in_dims.z + ih) * params.in_dims.w + iw;
+    out[out_idx] = inp[in_idx];
+  } else {
+    out[out_idx] = params.value;
+  }
+}
+`;
+
+/**
  * Positional argument tuple for `aten::constant_pad_nd.default`:
  * - `[inTensor, pad, value, outTensor]`
  * - `[inTensor, pad, outTensor]` (value defaults to 0.0)
@@ -139,10 +188,6 @@ function recordIn(ctx: WgpuExecutionContext, args: ConstantPadNdArgs): void {
   }
 
   const device = ctx.device;
-  const wgSize = 256;
-  const totalWorkgroups = Math.ceil(outTensor.numel / wgSize);
-  const workgroupCountX = Math.min(totalWorkgroups, 65535);
-  const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
 
   // Right-align dims into 4D tuples: leading unused dims = 1 (pad = 0)
   const padLeft = (arr: readonly number[], fill: number): number[] => [
@@ -150,16 +195,41 @@ function recordIn(ctx: WgpuExecutionContext, args: ConstantPadNdArgs): void {
     ...arr,
   ];
 
+  const left4 = padLeft(left.slice(0, nd), 0);
+  const right4 = padLeft(right.slice(0, nd), 0);
+  const outDims = padLeft(outTensor.shape, 1);
+  const inDims = padLeft(inTensor.shape, 1);
+
   const buffer = new ArrayBuffer(64);
-  new Uint32Array(buffer).set([
-    ...padLeft(outTensor.shape, 1),
-    ...padLeft(inTensor.shape, 1),
-    ...padLeft(left.slice(0, nd), 0),
-    outTensor.numel,
-  ]);
+  new Uint32Array(buffer).set([...outDims, ...inDims, ...left4, outTensor.numel]);
   new Float32Array(buffer, 52, 1)[0] = value;
 
   const uniformBuffer = ctx.uniformBuffer(buffer);
+
+  const isSpatialOnly = left4[0] === 0 && left4[1] === 0 && right4[0] === 0 && right4[1] === 0;
+  const sliceCount = outDims[0] * outDims[1];
+
+  if (isSpatialOnly && sliceCount <= 65535) {
+    const bundle = createComputeBundle(device, SHADER_SPATIAL_2D, [
+      { binding: 0, buffer: outTensor.buffer },
+      { binding: 1, buffer: inTensor.buffer },
+      { binding: 2, buffer: uniformBuffer },
+    ]);
+
+    ctx.addDispatch({
+      pipeline: bundle.pipeline,
+      bindGroup: bundle.bindGroup,
+      workgroupCountX: Math.ceil(outDims[3] / 16),
+      workgroupCountY: Math.ceil(outDims[2] / 16),
+      workgroupCountZ: sliceCount,
+    });
+    return;
+  }
+
+  const wgSize = 256;
+  const totalWorkgroups = Math.ceil(outTensor.numel / wgSize);
+  const workgroupCountX = Math.min(totalWorkgroups, 65535);
+  const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
 
   const bundle = createComputeBundle(
     device,

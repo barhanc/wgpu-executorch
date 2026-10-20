@@ -324,6 +324,7 @@ export class WgpuExecutionContext {
 
     const encoder = this.#device.createCommandEncoder();
     let pass: GPUComputePassEncoder | undefined;
+    let currentPipeline: GPUComputePipeline | undefined;
 
     for (const cmd of this.#commands) {
       switch (cmd.kind) {
@@ -331,6 +332,7 @@ export class WgpuExecutionContext {
           if (pass) {
             pass.end();
             pass = undefined;
+            currentPipeline = undefined;
           }
           encoder.copyBufferToBuffer(cmd.copy.src, 0, cmd.copy.dst, 0, cmd.copy.size);
           break;
@@ -341,7 +343,10 @@ export class WgpuExecutionContext {
             pass = encoder.beginComputePass();
           }
           const d = cmd.dispatch;
-          pass.setPipeline(d.pipeline);
+          if (d.pipeline !== currentPipeline) {
+            pass.setPipeline(d.pipeline);
+            currentPipeline = d.pipeline;
+          }
           pass.setBindGroup(0, d.bindGroup);
           pass.dispatchWorkgroups(d.workgroupCountX, d.workgroupCountY, d.workgroupCountZ ?? 1);
           break;
