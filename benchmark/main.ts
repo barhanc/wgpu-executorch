@@ -52,6 +52,7 @@ async function run() {
   `;
 
   const results: BenchItem[] = [];
+  bodyEl.innerHTML = '';
 
   const addRow = (item: BenchItem) => {
     results.push(item);
@@ -60,9 +61,9 @@ async function run() {
       <td>${item.category}</td>
       <td><strong>${item.name}</strong></td>
       <td><code>${item.shape}</code></td>
-      <td>${item.fp32Ms.toFixed(3)} ms</td>
-      <td>${item.fp16Ms !== null ? item.fp16Ms.toFixed(3) + ' ms' : 'N/A'}</td>
-      <td class="speedup">${item.speedup}</td>
+      <td style="text-align: right;">${item.fp32Ms.toFixed(3)} ms</td>
+      <td style="text-align: right;">${item.fp16Ms !== null ? item.fp16Ms.toFixed(3) + ' ms' : 'N/A'}</td>
+      <td class="speedup" style="text-align: right;">${item.speedup}</td>
     `;
     bodyEl.appendChild(tr);
     tableEl.style.display = 'table';
@@ -646,6 +647,23 @@ async function run() {
   jsonEl.innerText = outJson;
   // eslint-disable-next-line no-console
   console.log('__BENCHMARK_RESULTS__:' + outJson);
+
+  try {
+    await fetch('/api/results', {
+      method: 'POST',
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      headers: { 'Content-Type': 'application/json' },
+      body: outJson,
+    });
+  } catch {}
+}
+
+const runBtn = document.getElementById('run-btn');
+if (runBtn) {
+  runBtn.addEventListener('click', () => {
+    runBtn.setAttribute('disabled', 'true');
+    run().finally(() => runBtn.removeAttribute('disabled'));
+  });
 }
 
 run();
