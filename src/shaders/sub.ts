@@ -67,6 +67,56 @@ fn main(
 }
 `;
 
+const SHADER_ELEMENTWISE_VEC4 = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input1: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read> input2: array<vec4<f32>>;
+@group(0) @binding(2) var<storage, read_write> output: array<vec4<f32>>;
+
+struct Params {
+  num_elements: u32,
+}
+@group(0) @binding(3) var<uniform> params: Params;
+
+override wg_size: u32 = 256u;
+override alpha: f32 = 1.0;
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.num_elements) {
+    return;
+  }
+  output[idx] = input1[idx] - alpha * input2[idx];
+}
+`;
+
+const SHADER_ELEMENTWISE = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input1: array<f32>;
+@group(0) @binding(1) var<storage, read> input2: array<f32>;
+@group(0) @binding(2) var<storage, read_write> output: array<f32>;
+
+struct Params {
+  num_elements: u32,
+}
+@group(0) @binding(3) var<uniform> params: Params;
+
+override wg_size: u32 = 256u;
+override alpha: f32 = 1.0;
+
+@compute @workgroup_size(wg_size, 1, 1)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.num_elements) {
+    return;
+  }
+  output[idx] = input1[idx] - alpha * input2[idx];
+}
+`;
+
 /**
  * Positional argument tuple for `aten::sub.Tensor`:
  * Standard ExecuTorch schema: `[in1, in2, alpha, out]`
@@ -93,13 +143,49 @@ function recordIn(ctx: WgpuExecutionContext, args: SubArgs): void {
     throw new Error(`${name}: Input shapes are not broadcastable to output shape`);
   }
 
+  const sameShape =
+    in1.shape.length === out.shape.length &&
+    in2.shape.length === out.shape.length &&
+    in1.shape.every((s, i) => s === out.shape[i]) &&
+    in2.shape.every((s, i) => s === out.shape[i]);
+
+  const device = ctx.device;
+  const wgSize = 256;
+
+  if (sameShape) {
+    const isVec4 = out.numel % 4 === 0;
+    const elements = isVec4 ? out.numel / 4 : out.numel;
+    const totalWorkgroups = Math.ceil(elements / wgSize);
+    const workgroupCountX = Math.min(totalWorkgroups, 65535);
+    const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
+    const paramsBuffer = ctx.uniformBuffer(new Uint32Array([elements]));
+
+    const bundle = createComputeBundle(
+      device,
+      isVec4 ? SHADER_ELEMENTWISE_VEC4 : SHADER_ELEMENTWISE,
+      [
+        { binding: 0, buffer: in1.buffer },
+        { binding: 1, buffer: in2.buffer },
+        { binding: 2, buffer: out.buffer },
+        { binding: 3, buffer: paramsBuffer },
+      ],
+      // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
+      { wg_size: wgSize, alpha }
+    );
+
+    ctx.addDispatch({
+      pipeline: bundle.pipeline,
+      bindGroup: bundle.bindGroup,
+      workgroupCountX,
+      workgroupCountY,
+    });
+    return;
+  }
+
   const outRank = out.shape.length;
   const outMetaBuffer = ctx.uniformBuffer(encodeTensorMeta(out));
   const in1MetaBuffer = ctx.uniformBuffer(encodeTensorMeta(in1, outRank));
   const in2MetaBuffer = ctx.uniformBuffer(encodeTensorMeta(in2, outRank));
-
-  const device = ctx.device;
-  const wgSize = 256;
 
   const totalWorkgroups = Math.ceil(out.numel / wgSize);
   const workgroupCountX = Math.min(totalWorkgroups, 65535);
@@ -137,6 +223,10 @@ function recordIn(ctx: WgpuExecutionContext, args: SubArgs): void {
  */
 export const sub: Shader<SubArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: {
+    default: SHADER,
+    elementwise: SHADER_ELEMENTWISE,
+    elementwiseVec4: SHADER_ELEMENTWISE_VEC4,
+  },
   recordIn,
 };

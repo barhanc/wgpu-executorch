@@ -48,9 +48,103 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     ssum = ssum + exp(v - mx);
   }
+  let inv_ssum = 1.0 / ssum;
   for (var r: u32 = 0u; r < params.r_; r = r + 1u) {
     let idx = base + r * params.inner_;
-    out[idx] = exp(inp[idx] - mx) / ssum;
+    out[idx] = exp(inp[idx] - mx) * inv_ssum;
+  }
+}
+`;
+
+/**
+ * WGSL compute shader for contiguous last-dimension softmax (inner_ == 1).
+ * Eliminates per-thread integer divisions and modulos.
+ */
+const SHADER_LAST_DIM = /* wgsl */ `
+struct Params {
+  outer_: u32,
+  r_: u32,
+  inner_: u32,
+  pad_: u32,
+};
+
+@group(0) @binding(0) var<storage, read> inp: array<f32>;
+@group(0) @binding(1) var<storage, read_write> out: array<f32>;
+@group(0) @binding(2) var<uniform> params: Params;
+
+override wg_size: u32 = 256;
+
+@compute @workgroup_size(wg_size)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>
+) {
+  let row = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (row >= params.outer_) {
+    return;
+  }
+  let base = row * params.r_;
+  var mx: f32 = -3.4e38;
+  var ssum: f32 = 0.0;
+  for (var r: u32 = 0u; r < params.r_; r = r + 1u) {
+    let v = inp[base + r];
+    if (v > mx) {
+      ssum = ssum * exp(mx - v);
+      mx = v;
+    }
+    ssum = ssum + exp(v - mx);
+  }
+  let inv_ssum = 1.0 / ssum;
+  for (var r: u32 = 0u; r < params.r_; r = r + 1u) {
+    let idx = base + r;
+    out[idx] = exp(inp[idx] - mx) * inv_ssum;
+  }
+}
+`;
+
+/**
+ * WGSL compute shader for vectorized 128-bit contiguous last-dimension softmax.
+ */
+const SHADER_LAST_DIM_VEC4 = /* wgsl */ `
+struct Params {
+  outer_: u32,
+  r_vecs: u32,
+  inner_: u32,
+  pad_: u32,
+};
+
+@group(0) @binding(0) var<storage, read> inp: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read_write> out: array<vec4<f32>>;
+@group(0) @binding(2) var<uniform> params: Params;
+
+override wg_size: u32 = 256;
+
+@compute @workgroup_size(wg_size)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>
+) {
+  let row = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (row >= params.outer_) {
+    return;
+  }
+  let base = row * params.r_vecs;
+  var mx: f32 = -3.4e38;
+  var ssum: f32 = 0.0;
+  for (var r: u32 = 0u; r < params.r_vecs; r = r + 1u) {
+    let v = inp[base + r];
+    let row_max = max(max(v.x, v.y), max(v.z, v.w));
+    if (row_max > mx) {
+      ssum = ssum * exp(mx - row_max);
+      mx = row_max;
+    }
+    let e = exp(v - vec4<f32>(mx));
+    ssum = ssum + e.x + e.y + e.z + e.w;
+  }
+  let inv_ssum = 1.0 / ssum;
+  for (var r: u32 = 0u; r < params.r_vecs; r = r + 1u) {
+    let idx = base + r;
+    out[idx] = exp(inp[idx] - vec4<f32>(mx)) * inv_ssum;
   }
 }
 `;
@@ -120,11 +214,28 @@ function recordIn(ctx: WgpuExecutionContext, args: SoftmaxArgs): void {
   }
 
   const wgSize = 256;
-  const paramsBuffer = ctx.uniformBuffer(new Uint32Array([outer, r, inner, 0]));
+
+  let code = SHADER;
+  let lines = outer * inner;
+  let paramsArr = [outer, r, inner, 0];
+
+  if (inner === 1) {
+    if (r % 4 === 0) {
+      code = SHADER_LAST_DIM_VEC4;
+      paramsArr = [outer, r / 4, 1, 0];
+      lines = outer;
+    } else {
+      code = SHADER_LAST_DIM;
+      paramsArr = [outer, r, 1, 0];
+      lines = outer;
+    }
+  }
+
+  const paramsBuffer = ctx.uniformBuffer(new Uint32Array(paramsArr));
 
   const bundle = createComputeBundle(
     ctx.device,
-    SHADER,
+    code,
     [
       { binding: 0, buffer: inTensor.buffer },
       { binding: 1, buffer: outTensor.buffer },
@@ -134,16 +245,15 @@ function recordIn(ctx: WgpuExecutionContext, args: SoftmaxArgs): void {
     { wg_size: wgSize }
   );
 
-  const lines = outer * inner;
-  const workgroupCount = Math.ceil(lines / wgSize);
-  if (workgroupCount > 65535) {
-    throw new Error(`${name}: reduction exceeds dispatch limit`);
-  }
+  const totalWorkgroups = Math.ceil(lines / wgSize);
+  const workgroupCountX = Math.min(totalWorkgroups, 65535);
+  const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
+
   ctx.addDispatch({
     pipeline: bundle.pipeline,
     bindGroup: bundle.bindGroup,
-    workgroupCountX: workgroupCount,
-    workgroupCountY: 1,
+    workgroupCountX,
+    workgroupCountY,
   });
 }
 
@@ -155,6 +265,6 @@ function recordIn(ctx: WgpuExecutionContext, args: SoftmaxArgs): void {
  */
 export const softmax: Shader<SoftmaxArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: { default: SHADER, lastDim: SHADER_LAST_DIM, lastDimVec4: SHADER_LAST_DIM_VEC4 },
   recordIn,
 };

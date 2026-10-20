@@ -32,7 +32,34 @@ fn main(
     return;
   }
   let x = input[idx];
-  output[idx] = select(select(x * (x + 3.0) / 6.0, x, x >= 3.0), 0.0, x <= -3.0);
+  output[idx] = clamp(x + 3.0, 0.0, 6.0) * x / 6.0;
+}
+`;
+
+/**
+ * WGSL compute shader for vectorized 128-bit Hardswish activation.
+ */
+const SHADER_VEC4 = /* wgsl */ `
+@group(0) @binding(0) var<storage, read> input: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read_write> output: array<vec4<f32>>;
+
+struct Params {
+  num_elements: u32,
+}
+@group(0) @binding(2) var<uniform> params: Params;
+
+override wg_size: u32 = 256u;
+
+@compute @workgroup_size(wg_size)
+fn main(
+  @builtin(global_invocation_id) gid: vec3<u32>,
+  @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+  let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+  if (idx >= params.num_elements) {
+    return;
+  }
+  let x = input[idx];
+  output[idx] = clamp(x + 3.0, vec4<f32>(0.0), vec4<f32>(6.0)) * x / 6.0;
 }
 `;
 
@@ -58,17 +85,19 @@ function recordIn(ctx: WgpuExecutionContext, [inTensor, outTensor]: HardswishArg
 
   const device = ctx.device;
   const wgSize = 256;
-  const totalWorkgroups = Math.ceil(outTensor.numel / wgSize);
+  const isVec4 = outTensor.numel % 4 === 0;
+  const elements = isVec4 ? outTensor.numel / 4 : outTensor.numel;
+  const totalWorkgroups = Math.ceil(elements / wgSize);
   const workgroupCountX = Math.min(totalWorkgroups, 65535);
   const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
 
   const buffer = new ArrayBuffer(16);
-  new Uint32Array(buffer)[0] = outTensor.numel;
+  new Uint32Array(buffer)[0] = elements;
   const uniformBuffer = ctx.uniformBuffer(buffer);
 
   const bundle = createComputeBundle(
     device,
-    SHADER,
+    isVec4 ? SHADER_VEC4 : SHADER,
     [
       { binding: 0, buffer: inTensor.buffer },
       { binding: 1, buffer: outTensor.buffer },
@@ -93,6 +122,6 @@ function recordIn(ctx: WgpuExecutionContext, [inTensor, outTensor]: HardswishArg
  */
 export const hardswish: Shader<HardswishArgs, typeof name> = {
   name,
-  code: SHADER,
+  code: { default: SHADER, vec4: SHADER_VEC4 },
   recordIn,
 };
