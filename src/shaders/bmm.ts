@@ -153,11 +153,8 @@ fn main(
   @builtin(workgroup_id) wg_id: vec3<u32>,
   @builtin(local_invocation_id) local_id: vec3<u32>
 ) {
-  let tiles_per_m = (params.M + TILE - 1u) / TILE;
-  let bn = wg_id.y / tiles_per_m;
-  let row_tile = wg_id.y % tiles_per_m;
-
-  let tile_row0 = row_tile * TILE;
+  let bn = wg_id.z;
+  let tile_row0 = wg_id.y * TILE;
   let tile_col0_4 = wg_id.x * TILE4;
   let tile_row = local_id.y * RPT;
   let tile_col4 = local_id.x;
@@ -250,25 +247,29 @@ fn main(
 
   let num_tiles = (params.K + 15u) / 16u;
   for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
-    let k4_start = t * 4u;
+    let k4_start = t << 2u;
     let a_row = tid;
     let a_m = tile_row0 + a_row;
+    let a_valid = a_m < params.M;
+    let a_base = a_base4 + a_m * K_vecs + k4_start;
     for (var col = 0u; col < 4u; col = col + 1u) {
-      if (a_m < params.M && (k4_start + col) < K_vecs) {
-        a_sub[a_row][col] = a[a_base4 + a_m * K_vecs + k4_start + col];
+      if (a_valid && (k4_start + col) < K_vecs) {
+        a_sub[a_row][col] = a[a_base + col];
       } else {
         a_sub[a_row][col] = vec4<f32>(0.0);
       }
     }
 
-    let b_r = tid / 4u;
-    let b_c_base = (tid % 4u) * 4u;
-    let b_k = t * 16u + b_r;
+    let b_r = tid >> 2u;
+    let b_c_base = (tid & 3u) << 2u;
+    let b_k = (t << 4u) + b_r;
+    let b_k_valid = b_k < params.K;
+    let b_base = b_base4 + b_k * N_vecs + tile_col0_4 + b_c_base;
     for (var i = 0u; i < 4u; i = i + 1u) {
       let b_c = b_c_base + i;
       let b_n4 = tile_col0_4 + b_c;
-      if (b_k < params.K && b_n4 < N_vecs) {
-        b_sub[b_r][b_c] = b[b_base4 + b_k * N_vecs + b_n4];
+      if (b_k_valid && b_n4 < N_vecs) {
+        b_sub[b_r][b_c] = b[b_base + i];
       } else {
         b_sub[b_r][b_c] = vec4<f32>(0.0);
       }
@@ -368,6 +369,9 @@ function recordIn(ctx: WgpuExecutionContext, args: BmmArgs): void {
     workgroupCountZ = batch;
   } else if (useVec4) {
     code = SHADER_VEC4;
+    workgroupCountX = Math.ceil(n / 32);
+    workgroupCountY = Math.ceil(m / 32);
+    workgroupCountZ = batch;
   }
 
   const bundle = createComputeBundle(ctx.device, code, [
