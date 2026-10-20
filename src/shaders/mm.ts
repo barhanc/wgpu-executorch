@@ -241,11 +241,11 @@ fn main(
       }
     }
 
+    let b_r = tid / 4u;
+    let b_c_base = (tid % 4u) * 4u;
+    let b_k = t * 16u + b_r;
     for (var i = 0u; i < 4u; i = i + 1u) {
-      let b_idx = tid * 4u + i;
-      let b_r = b_idx / 16u;
-      let b_c = b_idx % 16u;
-      let b_k = t * 16u + b_r;
+      let b_c = b_c_base + i;
       let b_n4 = tile_col0_4 + b_c;
       if (b_k < params.K && b_n4 < N_vecs) {
         b_sub[b_r][b_c] = b[b_k * N_vecs + b_n4];
