@@ -191,6 +191,112 @@ fn main(
 `;
 
 /**
+ * WGSL compute shader for 64x64 tiled GEMM with 2D register tiling (8x8 per thread).
+ * Features 2x higher arithmetic intensity and memory reuse than the 32x32 kernel.
+ */
+const SHADER_64X64 = /* wgsl */ `
+struct Params {
+  M: u32,
+  N: u32,
+  K: u32,
+  pad_: u32,
+};
+
+@group(0) @binding(0) var<storage, read> a: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read> b: array<vec4<f32>>;
+@group(0) @binding(2) var<storage, read_write> out: array<vec4<f32>>;
+@group(0) @binding(3) var<uniform> params: Params;
+
+var<workgroup> a_sub: array<array<vec4<f32>, 4>, 64>;
+var<workgroup> b_sub: array<array<vec4<f32>, 16>, 16>;
+
+@compute @workgroup_size(8, 8, 1)
+fn main(
+  @builtin(workgroup_id) wg_id: vec3<u32>,
+  @builtin(local_invocation_id) local_id: vec3<u32>
+) {
+  let tile_row0 = wg_id.y * 64u;
+  let tile_col0_4 = wg_id.x * 16u;
+  let tid = local_id.y * 8u + local_id.x;
+  let K_vecs = params.K / 4u;
+  let N_vecs = params.N / 4u;
+
+  var acc0: array<vec4<f32>, 8>;
+  var acc1: array<vec4<f32>, 8>;
+  for (var i = 0u; i < 8u; i = i + 1u) {
+    acc0[i] = vec4<f32>(0.0);
+    acc1[i] = vec4<f32>(0.0);
+  }
+
+  let num_tiles = (params.K + 15u) / 16u;
+  for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
+    let k4_start = t * 4u;
+    let a_row = tid;
+    let a_m = tile_row0 + a_row;
+    for (var col = 0u; col < 4u; col = col + 1u) {
+      if (a_m < params.M && (k4_start + col) < K_vecs) {
+        a_sub[a_row][col] = a[a_m * K_vecs + k4_start + col];
+      } else {
+        a_sub[a_row][col] = vec4<f32>(0.0);
+      }
+    }
+
+    for (var i = 0u; i < 4u; i = i + 1u) {
+      let b_idx = tid * 4u + i;
+      let b_r = b_idx / 16u;
+      let b_c = b_idx % 16u;
+      let b_k = t * 16u + b_r;
+      let b_n4 = tile_col0_4 + b_c;
+      if (b_k < params.K && b_n4 < N_vecs) {
+        b_sub[b_r][b_c] = b[b_k * N_vecs + b_n4];
+      } else {
+        b_sub[b_r][b_c] = vec4<f32>(0.0);
+      }
+    }
+    workgroupBarrier();
+
+    let thread_row = local_id.y * 8u;
+    let thread_col4 = local_id.x * 2u;
+
+    for (var k4: u32 = 0u; k4 < 4u; k4 = k4 + 1u) {
+      let b0_0 = b_sub[k4 * 4u + 0u][thread_col4];
+      let b0_1 = b_sub[k4 * 4u + 0u][thread_col4 + 1u];
+
+      let b1_0 = b_sub[k4 * 4u + 1u][thread_col4];
+      let b1_1 = b_sub[k4 * 4u + 1u][thread_col4 + 1u];
+
+      let b2_0 = b_sub[k4 * 4u + 2u][thread_col4];
+      let b2_1 = b_sub[k4 * 4u + 2u][thread_col4 + 1u];
+
+      let b3_0 = b_sub[k4 * 4u + 3u][thread_col4];
+      let b3_1 = b_sub[k4 * 4u + 3u][thread_col4 + 1u];
+
+      for (var ir = 0u; ir < 8u; ir = ir + 1u) {
+        let ac = a_sub[thread_row + ir][k4];
+        acc0[ir] = acc0[ir] + b0_0 * ac.x + b1_0 * ac.y + b2_0 * ac.z + b3_0 * ac.w;
+        acc1[ir] = acc1[ir] + b0_1 * ac.x + b1_1 * ac.y + b2_1 * ac.z + b3_1 * ac.w;
+      }
+    }
+    workgroupBarrier();
+  }
+
+  let thread_row = local_id.y * 8u;
+  let col4 = tile_col0_4 + local_id.x * 2u;
+  for (var ir = 0u; ir < 8u; ir = ir + 1u) {
+    let r = tile_row0 + thread_row + ir;
+    if (r < params.M) {
+      if (col4 < N_vecs) {
+        out[r * N_vecs + col4] = acc0[ir];
+      }
+      if (col4 + 1u < N_vecs) {
+        out[r * N_vecs + col4 + 1u] = acc1[ir];
+      }
+    }
+  }
+}
+`;
+
+/**
  * Output tile dimension per workgroup (32x32).
  */
 const TILE = 32;
@@ -229,12 +335,22 @@ function recordIn(ctx: WgpuExecutionContext, [in1, in2, out]: MmArgs): void {
   const device = ctx.device;
   const paramsBuffer = ctx.uniformBuffer(new Uint32Array([m, n, k1, 0]));
 
-  const workgroupCountX = Math.ceil(n / TILE);
-  const workgroupCountY = Math.ceil(m / TILE);
-
-  // Use vectorized 128-bit memory loads when K and N are divisible by 4
+  // Use 64x64 register-tiled GEMM when dimensions are sufficiently large and divisible by 4,
+  // falling back to 32x32 vec4 or 32x32 scalar tiled paths.
   const useVec4 = k1 % 4 === 0 && n % 4 === 0;
-  const code = useVec4 ? SHADER_VEC4 : SHADER_TILED;
+  const use64x64 = useVec4 && m >= 64 && n >= 64 && k1 >= 16;
+
+  let code = SHADER_TILED;
+  let workgroupCountX = Math.ceil(n / TILE);
+  let workgroupCountY = Math.ceil(m / TILE);
+
+  if (use64x64) {
+    code = SHADER_64X64;
+    workgroupCountX = Math.ceil(n / 64);
+    workgroupCountY = Math.ceil(m / 64);
+  } else if (useVec4) {
+    code = SHADER_VEC4;
+  }
 
   const bundle = createComputeBundle(device, code, [
     { binding: 0, buffer: in1.buffer },
@@ -254,13 +370,12 @@ function recordIn(ctx: WgpuExecutionContext, [in1, in2, out]: MmArgs): void {
 /**
  * WebGPU compute kernel for ExecuTorch `aten::mm.default`.
  *
- * Computes matrix multiplication `out = A @ B` using a shared-memory tiled GEMM
- * (32x32 output tile per workgroup, each thread computing a 4x4 sub-tile). Automatically
- * selects the 128-bit vectorized `vec4<f32>` memory path when both K and N are multiples
- * of 4, falling back to the standard scalar tiled path for arbitrary dimensions.
+ * Computes matrix multiplication `out = A @ B` using a shared-memory tiled GEMM.
+ * Automatically selects 64x64 register-tiled or 32x32 128-bit vectorized `vec4<f32>` paths
+ * when dimensions permit, falling back to the standard scalar tiled path.
  */
 export const mm: Shader<MmArgs, typeof name> = {
   name,
-  code: { tiled: SHADER_TILED, vec4: SHADER_VEC4 },
+  code: { tiled: SHADER_TILED, vec4: SHADER_VEC4, tiled64x64: SHADER_64X64 },
   recordIn,
 };
