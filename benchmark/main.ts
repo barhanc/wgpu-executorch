@@ -1,12 +1,18 @@
 import { WgpuExecutionContext, shaders, type Program } from '../src';
+import {
+  WgpuExecutionContext as BaselineContext,
+  shaders as baselineShaders,
+} from './baseline-main/src';
 
 interface BenchItem {
   category: string;
   name: string;
   shape: string;
+  baselineMs: number | null;
   fp32Ms: number;
   fp16Ms: number | null;
-  speedup: string;
+  speedupFp32: string;
+  speedupFp16: string;
 }
 
 function makeF32(numel: number): Float32Array {
@@ -61,9 +67,11 @@ async function run() {
       <td>${item.category}</td>
       <td><strong>${item.name}</strong></td>
       <td><code>${item.shape}</code></td>
+      <td style="text-align: right;">${item.baselineMs !== null ? item.baselineMs.toFixed(3) + ' ms' : 'N/A'}</td>
       <td style="text-align: right;">${item.fp32Ms.toFixed(3)} ms</td>
       <td style="text-align: right;">${item.fp16Ms !== null ? item.fp16Ms.toFixed(3) + ' ms' : 'N/A'}</td>
-      <td class="speedup" style="text-align: right;">${item.speedup}</td>
+      <td class="speedup" style="text-align: right;">${item.speedupFp32}</td>
+      <td class="speedup" style="text-align: right;">${item.speedupFp16}</td>
     `;
     bodyEl.appendChild(tr);
     tableEl.style.display = 'table';
@@ -77,8 +85,35 @@ async function run() {
     outShape: number[],
     iters = 5
   ) => {
-    statusEl.innerText = `Benchmarking full model: ${displayName} (FP32)...`;
+    statusEl.innerText = `Benchmarking full model: ${displayName} (Baseline - main)...`;
 
+    let baselineMs: number | null = null;
+    try {
+      const progRes = await fetch(`/assets/${modelName}/program.json`);
+      const program = (await progRes.json()) as Program;
+      const weightsRes = await fetch(`/assets/${modelName}/weights.bin`);
+      const weights = await weightsRes.arrayBuffer();
+
+      const baseCtx = new BaselineContext(device);
+      const inNumel = inShape.reduce((a, b) => a * b, 1);
+      const inp = baseCtx.tensor('float32', inShape).setData(makeF32(inNumel));
+      const out = baseCtx.tensor('float32', outShape);
+
+      baseCtx.recordProgram(program, weights, [inp, out]);
+      baseCtx.submit();
+      await baseCtx.sync();
+
+      const tb = performance.now();
+      for (let i = 0; i < iters; i++) baseCtx.submit();
+      await baseCtx.sync();
+      baselineMs = (performance.now() - tb) / iters;
+      baseCtx.destroy();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn(`Could not run ${displayName} Baseline:`, e);
+    }
+
+    statusEl.innerText = `Benchmarking full model: ${displayName} (Opt FP32)...`;
     let fp32Ms = 0;
     try {
       const progRes = await fetch(`/assets/${modelName}/program.json`);
@@ -107,9 +142,9 @@ async function run() {
     }
 
     let fp16Ms: number | null = null;
-    let speedup = 'N/A';
+    let speedupFp16 = 'N/A';
     if (hasF16) {
-      statusEl.innerText = `Benchmarking full model: ${displayName} (FP16)...`;
+      statusEl.innerText = `Benchmarking full model: ${displayName} (Native FP16)...`;
       try {
         const progRes = await fetch(`/assets/${modelName}/program-fp16.json`);
         const program = (await progRes.json()) as Program;
@@ -129,7 +164,9 @@ async function run() {
         for (let i = 0; i < iters; i++) ctx16.submit();
         await ctx16.sync();
         fp16Ms = (performance.now() - t1) / iters;
-        speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
+        speedupFp16 = baselineMs
+          ? `${(baselineMs / fp16Ms).toFixed(2)}x`
+          : `${(fp32Ms / fp16Ms).toFixed(2)}x`;
         ctx16.destroy();
       } catch (e) {
         // eslint-disable-next-line no-console
@@ -137,13 +174,17 @@ async function run() {
       }
     }
 
+    const speedupFp32 = baselineMs ? `${(baselineMs / fp32Ms).toFixed(2)}x` : '1.00x';
+
     addRow({
       category: 'End-to-End Model',
       name: displayName,
       shape: `[${inShape.join(',')}] → [${outShape.join(',')}]`,
+      baselineMs,
       fp32Ms,
       fp16Ms,
-      speedup,
+      speedupFp32,
+      speedupFp16,
     });
   };
 
@@ -174,6 +215,21 @@ async function run() {
   for (const [M, N, iters] of mmConfigs) {
     statusEl.innerText = `Benchmarking MM ${M}x${N}...`;
 
+    // Baseline
+    const baseCtx = new BaselineContext(device);
+    const ba = baseCtx.tensor('float32', [M, N]).setData(makeF32(M * N));
+    const bb = baseCtx.tensor('float32', [N, N]).setData(makeF32(N * N));
+    const bout = baseCtx.tensor('float32', [M, N]);
+    baseCtx.recordShader(baselineShaders.mm, [ba, bb, bout]);
+    baseCtx.submit();
+    await baseCtx.sync();
+    const tb = performance.now();
+    for (let i = 0; i < iters; i++) baseCtx.submit();
+    await baseCtx.sync();
+    const baselineMs = (performance.now() - tb) / iters;
+    baseCtx.destroy();
+
+    // Optimized FP32
     const ctx32 = new WgpuExecutionContext(device);
     const a32 = ctx32.tensor('float32', [M, N]).setData(makeF32(M * N));
     const b32 = ctx32.tensor('float32', [N, N]).setData(makeF32(N * N));
@@ -189,8 +245,8 @@ async function run() {
     const fp32Ms = (performance.now() - t0) / iters;
     ctx32.destroy();
 
+    // Native FP16
     let fp16Ms: number | null = null;
-    let speedup = 'N/A';
     if (hasF16) {
       const ctx16 = new WgpuExecutionContext(device);
       const a16 = ctx16.tensor('float16', [M, N]).setData(makeF16(M * N));
@@ -205,17 +261,21 @@ async function run() {
       for (let i = 0; i < iters; i++) ctx16.submit();
       await ctx16.sync();
       fp16Ms = (performance.now() - t1) / iters;
-      speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
       ctx16.destroy();
     }
+
+    const speedupFp32 = `${(baselineMs / fp32Ms).toFixed(2)}x`;
+    const speedupFp16 = fp16Ms !== null ? `${(baselineMs / fp16Ms).toFixed(2)}x` : 'N/A';
 
     addRow({
       category: 'Linear Algebra',
       name: `MatMul (MM ${M >= 1024 ? '64x64' : 'Vec4'})`,
       shape: `[${M}, ${N}] * [${N}, ${N}]`,
+      baselineMs,
       fp32Ms,
       fp16Ms,
-      speedup,
+      speedupFp32,
+      speedupFp16,
     });
   }
 
@@ -228,6 +288,21 @@ async function run() {
   for (const [B, M, N, iters] of bmmConfigs) {
     statusEl.innerText = `Benchmarking BMM [${B}, ${M}, ${N}]...`;
 
+    // Baseline
+    const baseCtx = new BaselineContext(device);
+    const ba = baseCtx.tensor('float32', [B, M, N]).setData(makeF32(B * M * N));
+    const bb = baseCtx.tensor('float32', [B, N, N]).setData(makeF32(B * N * N));
+    const bout = baseCtx.tensor('float32', [B, M, N]);
+    baseCtx.recordShader(baselineShaders.bmm, [ba, bb, bout]);
+    baseCtx.submit();
+    await baseCtx.sync();
+    const tb = performance.now();
+    for (let i = 0; i < iters; i++) baseCtx.submit();
+    await baseCtx.sync();
+    const baselineMs = (performance.now() - tb) / iters;
+    baseCtx.destroy();
+
+    // Optimized FP32
     const ctx32 = new WgpuExecutionContext(device);
     const a32 = ctx32.tensor('float32', [B, M, N]).setData(makeF32(B * M * N));
     const b32 = ctx32.tensor('float32', [B, N, N]).setData(makeF32(B * N * N));
@@ -243,8 +318,8 @@ async function run() {
     const fp32Ms = (performance.now() - t0) / iters;
     ctx32.destroy();
 
+    // Native FP16
     let fp16Ms: number | null = null;
-    let speedup = 'N/A';
     if (hasF16) {
       const ctx16 = new WgpuExecutionContext(device);
       const a16 = ctx16.tensor('float16', [B, M, N]).setData(makeF16(B * M * N));
@@ -259,17 +334,21 @@ async function run() {
       for (let i = 0; i < iters; i++) ctx16.submit();
       await ctx16.sync();
       fp16Ms = (performance.now() - t1) / iters;
-      speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
       ctx16.destroy();
     }
+
+    const speedupFp32 = `${(baselineMs / fp32Ms).toFixed(2)}x`;
+    const speedupFp16 = fp16Ms !== null ? `${(baselineMs / fp16Ms).toFixed(2)}x` : 'N/A';
 
     addRow({
       category: 'Linear Algebra',
       name: 'Batch MatMul (BMM)',
       shape: `[${B}, ${M}, ${N}] * [${B}, ${N}, ${N}]`,
+      baselineMs,
       fp32Ms,
       fp16Ms,
-      speedup,
+      speedupFp32,
+      speedupFp16,
     });
   }
 
@@ -339,6 +418,49 @@ async function run() {
     const wNumel = c.wShape.reduce((a, b) => a * b, 1);
     const outShape = [c.inShape[0], c.wShape[0], c.inShape[2], c.inShape[3]];
 
+    // Baseline
+    const baseCtx = new BaselineContext(device);
+    const bin = baseCtx.tensor('float32', c.inShape).setData(makeF32(inNumel));
+    const bw = baseCtx.tensor('float32', c.wShape).setData(makeF32(wNumel));
+    const bb = baseCtx.tensor('float32', [c.wShape[0]]).setData(makeF32(c.wShape[0]));
+    const bout = baseCtx.tensor('float32', outShape);
+    if (c.shader === shaders.convolution) {
+      baseCtx.recordShader(baselineShaders.convolution, [
+        bin,
+        bw,
+        bb,
+        c.stride,
+        c.pad,
+        [1, 1],
+        false,
+        [0, 0],
+        c.groups,
+        bout,
+      ]);
+    } else {
+      baseCtx.recordShader(baselineShaders.convWithClamp, [
+        bin,
+        bw,
+        bb,
+        c.stride,
+        c.pad,
+        [1, 1],
+        false,
+        [0, 0],
+        c.groups,
+        0.0,
+        6.0,
+        bout,
+      ]);
+    }
+    baseCtx.submit();
+    await baseCtx.sync();
+    const tb = performance.now();
+    for (let i = 0; i < c.iters; i++) baseCtx.submit();
+    await baseCtx.sync();
+    const baselineMs = (performance.now() - tb) / c.iters;
+    baseCtx.destroy();
+
     // FP32
     const ctx32 = new WgpuExecutionContext(device);
     const in32 = ctx32.tensor('float32', c.inShape).setData(makeF32(inNumel));
@@ -387,7 +509,6 @@ async function run() {
 
     // FP16
     let fp16Ms: number | null = null;
-    let speedup = 'N/A';
     if (hasF16) {
       const ctx16 = new WgpuExecutionContext(device);
       const in16 = ctx16.tensor('float16', c.inShape).setData(makeF16(inNumel));
@@ -432,25 +553,29 @@ async function run() {
       for (let i = 0; i < c.iters; i++) ctx16.submit();
       await ctx16.sync();
       fp16Ms = (performance.now() - t1) / c.iters;
-      speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
       ctx16.destroy();
     }
+
+    const speedupFp32 = `${(baselineMs / fp32Ms).toFixed(2)}x`;
+    const speedupFp16 = fp16Ms !== null ? `${(baselineMs / fp16Ms).toFixed(2)}x` : 'N/A';
 
     addRow({
       category: c.category,
       name: c.label,
       shape: `[${c.inShape.join(',')}] * [${c.wShape.join(',')}]`,
+      baselineMs,
       fp32Ms,
       fp16Ms,
-      speedup,
+      speedupFp32,
+      speedupFp16,
     });
   }
 
   // 4. Activations
   const actConfigs = [
-    { name: 'ReLU (Vec4)', shader: shaders.relu },
-    { name: 'Sigmoid (Vec4)', shader: shaders.sigmoid },
-    { name: 'Hardswish (Vec4)', shader: shaders.hardswish },
+    { name: 'ReLU (Vec4)', shader: shaders.relu, baseShader: baselineShaders.relu },
+    { name: 'Sigmoid (Vec4)', shader: shaders.sigmoid, baseShader: baselineShaders.sigmoid },
+    { name: 'Hardswish (Vec4)', shader: shaders.hardswish, baseShader: baselineShaders.hardswish },
   ];
 
   const actShape = [1, 64, 56, 56];
@@ -460,6 +585,20 @@ async function run() {
   for (const a of actConfigs) {
     statusEl.innerText = `Benchmarking ${a.name}...`;
 
+    // Baseline
+    const baseCtx = new BaselineContext(device);
+    const bin = baseCtx.tensor('float32', actShape).setData(makeF32(actNumel));
+    const bout = baseCtx.tensor('float32', actShape);
+    baseCtx.recordShader(a.baseShader, [bin, bout]);
+    baseCtx.submit();
+    await baseCtx.sync();
+    const tb = performance.now();
+    for (let i = 0; i < actIters; i++) baseCtx.submit();
+    await baseCtx.sync();
+    const baselineMs = (performance.now() - tb) / actIters;
+    baseCtx.destroy();
+
+    // FP32
     const ctx32 = new WgpuExecutionContext(device);
     const in32 = ctx32.tensor('float32', actShape).setData(makeF32(actNumel));
     const out32 = ctx32.tensor('float32', actShape);
@@ -474,8 +613,8 @@ async function run() {
     const fp32Ms = (performance.now() - t0) / actIters;
     ctx32.destroy();
 
+    // FP16
     let fp16Ms: number | null = null;
-    let speedup = 'N/A';
     if (hasF16) {
       const ctx16 = new WgpuExecutionContext(device);
       const in16 = ctx16.tensor('float16', actShape).setData(makeF16(actNumel));
@@ -489,17 +628,21 @@ async function run() {
       for (let i = 0; i < actIters; i++) ctx16.submit();
       await ctx16.sync();
       fp16Ms = (performance.now() - t1) / actIters;
-      speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
       ctx16.destroy();
     }
+
+    const speedupFp32 = `${(baselineMs / fp32Ms).toFixed(2)}x`;
+    const speedupFp16 = fp16Ms !== null ? `${(baselineMs / fp16Ms).toFixed(2)}x` : 'N/A';
 
     addRow({
       category: 'Activation',
       name: a.name,
       shape: `[${actShape.join(',')}]`,
+      baselineMs,
       fp32Ms,
       fp16Ms,
-      speedup,
+      speedupFp32,
+      speedupFp16,
     });
   }
 
@@ -510,6 +653,20 @@ async function run() {
     const smNumel = 128 * 1024;
     const smIters = 30;
 
+    // Baseline
+    const baseCtx = new BaselineContext(device);
+    const bin = baseCtx.tensor('float32', smShape).setData(makeF32(smNumel));
+    const bout = baseCtx.tensor('float32', smShape);
+    baseCtx.recordShader(baselineShaders.softmax, [bin, 1, false, bout]);
+    baseCtx.submit();
+    await baseCtx.sync();
+    const tb = performance.now();
+    for (let i = 0; i < smIters; i++) baseCtx.submit();
+    await baseCtx.sync();
+    const baselineMs = (performance.now() - tb) / smIters;
+    baseCtx.destroy();
+
+    // FP32
     const ctx32 = new WgpuExecutionContext(device);
     const in32 = ctx32.tensor('float32', smShape).setData(makeF32(smNumel));
     const out32 = ctx32.tensor('float32', smShape);
@@ -524,8 +681,8 @@ async function run() {
     const fp32Ms = (performance.now() - t0) / smIters;
     ctx32.destroy();
 
+    // FP16
     let fp16Ms: number | null = null;
-    let speedup = 'N/A';
     if (hasF16) {
       const ctx16 = new WgpuExecutionContext(device);
       const in16 = ctx16.tensor('float16', smShape).setData(makeF16(smNumel));
@@ -539,17 +696,21 @@ async function run() {
       for (let i = 0; i < smIters; i++) ctx16.submit();
       await ctx16.sync();
       fp16Ms = (performance.now() - t1) / smIters;
-      speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
       ctx16.destroy();
     }
+
+    const speedupFp32 = `${(baselineMs / fp32Ms).toFixed(2)}x`;
+    const speedupFp16 = fp16Ms !== null ? `${(baselineMs / fp16Ms).toFixed(2)}x` : 'N/A';
 
     addRow({
       category: 'Reduction',
       name: 'Softmax (Last-Dim Vec4)',
       shape: `[${smShape.join(',')}]`,
+      baselineMs,
       fp32Ms,
       fp16Ms,
-      speedup,
+      speedupFp32,
+      speedupFp16,
     });
   }
 
@@ -560,6 +721,29 @@ async function run() {
     const pNumel = 1 * 64 * 112 * 112;
     const pIters = 25;
 
+    // Baseline
+    const baseCtx = new BaselineContext(device);
+    const bin = baseCtx.tensor('float32', pShape).setData(makeF32(pNumel));
+    const boutVals = baseCtx.tensor('float32', [1, 64, 56, 56]);
+    const boutIdx = baseCtx.tensor('int32', [1, 64, 56, 56]);
+    baseCtx.recordShader(baselineShaders.maxPool2d, [
+      bin,
+      [2, 2],
+      [2, 2],
+      [0, 0],
+      [1, 1],
+      false,
+      [boutVals, boutIdx],
+    ]);
+    baseCtx.submit();
+    await baseCtx.sync();
+    const tb = performance.now();
+    for (let i = 0; i < pIters; i++) baseCtx.submit();
+    await baseCtx.sync();
+    const baselineMs = (performance.now() - tb) / pIters;
+    baseCtx.destroy();
+
+    // FP32
     const ctx32 = new WgpuExecutionContext(device);
     const in32 = ctx32.tensor('float32', pShape).setData(makeF32(pNumel));
     const outVals32 = ctx32.tensor('float32', [1, 64, 56, 56]);
@@ -583,8 +767,8 @@ async function run() {
     const fp32Ms = (performance.now() - t0) / pIters;
     ctx32.destroy();
 
+    // FP16
     let fp16Ms: number | null = null;
-    let speedup = 'N/A';
     if (hasF16) {
       const ctx16 = new WgpuExecutionContext(device);
       const in16 = ctx16.tensor('float16', pShape).setData(makeF16(pNumel));
@@ -607,17 +791,21 @@ async function run() {
       for (let i = 0; i < pIters; i++) ctx16.submit();
       await ctx16.sync();
       fp16Ms = (performance.now() - t1) / pIters;
-      speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
       ctx16.destroy();
     }
+
+    const speedupFp32 = `${(baselineMs / fp32Ms).toFixed(2)}x`;
+    const speedupFp16 = fp16Ms !== null ? `${(baselineMs / fp16Ms).toFixed(2)}x` : 'N/A';
 
     addRow({
       category: 'Pooling & Resampling',
       name: 'MaxPool2D (2D Spatial Grid)',
       shape: `[${pShape.join(',')}]`,
+      baselineMs,
       fp32Ms,
       fp16Ms,
-      speedup,
+      speedupFp32,
+      speedupFp16,
     });
   }
 
@@ -628,6 +816,21 @@ async function run() {
     const numel = 1 * 64 * 56 * 56;
     const iters = 40;
 
+    // Baseline
+    const baseCtx = new BaselineContext(device);
+    const ba = baseCtx.tensor('float32', shape).setData(makeF32(numel));
+    const bb = baseCtx.tensor('float32', shape).setData(makeF32(numel));
+    const bout = baseCtx.tensor('float32', shape);
+    baseCtx.recordShader(baselineShaders.mul, [ba, bb, bout]);
+    baseCtx.submit();
+    await baseCtx.sync();
+    const tb = performance.now();
+    for (let i = 0; i < iters; i++) baseCtx.submit();
+    await baseCtx.sync();
+    const baselineMs = (performance.now() - tb) / iters;
+    baseCtx.destroy();
+
+    // FP32
     const ctx32 = new WgpuExecutionContext(device);
     const a32 = ctx32.tensor('float32', shape).setData(makeF32(numel));
     const b32 = ctx32.tensor('float32', shape).setData(makeF32(numel));
@@ -643,8 +846,8 @@ async function run() {
     const fp32Ms = (performance.now() - t0) / iters;
     ctx32.destroy();
 
+    // FP16
     let fp16Ms: number | null = null;
-    let speedup = 'N/A';
     if (hasF16) {
       const ctx16 = new WgpuExecutionContext(device);
       const a16 = ctx16.tensor('float16', shape).setData(makeF16(numel));
@@ -659,17 +862,21 @@ async function run() {
       for (let i = 0; i < iters; i++) ctx16.submit();
       await ctx16.sync();
       fp16Ms = (performance.now() - t1) / iters;
-      speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
       ctx16.destroy();
     }
+
+    const speedupFp32 = `${(baselineMs / fp32Ms).toFixed(2)}x`;
+    const speedupFp16 = fp16Ms !== null ? `${(baselineMs / fp16Ms).toFixed(2)}x` : 'N/A';
 
     addRow({
       category: 'Elementwise Math',
       name: 'Elementwise Mul (Vec4)',
       shape: `[${shape.join(',')}]`,
+      baselineMs,
       fp32Ms,
       fp16Ms,
-      speedup,
+      speedupFp32,
+      speedupFp16,
     });
   }
 
@@ -680,6 +887,20 @@ async function run() {
     const numel = 1024 * 1024;
     const iters = 25;
 
+    // Baseline
+    const baseCtx = new BaselineContext(device);
+    const ba = baseCtx.tensor('float32', shape).setData(makeF32(numel));
+    const bout = baseCtx.tensor('float32', shape);
+    baseCtx.recordShader(baselineShaders.permuteCopy, [ba, [1, 0], bout]);
+    baseCtx.submit();
+    await baseCtx.sync();
+    const tb = performance.now();
+    for (let i = 0; i < iters; i++) baseCtx.submit();
+    await baseCtx.sync();
+    const baselineMs = (performance.now() - tb) / iters;
+    baseCtx.destroy();
+
+    // FP32
     const ctx32 = new WgpuExecutionContext(device);
     const a32 = ctx32.tensor('float32', shape).setData(makeF32(numel));
     const out32 = ctx32.tensor('float32', shape);
@@ -694,8 +915,8 @@ async function run() {
     const fp32Ms = (performance.now() - t0) / iters;
     ctx32.destroy();
 
+    // FP16
     let fp16Ms: number | null = null;
-    let speedup = 'N/A';
     if (hasF16) {
       const ctx16 = new WgpuExecutionContext(device);
       const a16 = ctx16.tensor('float16', shape).setData(makeF16(numel));
@@ -709,17 +930,21 @@ async function run() {
       for (let i = 0; i < iters; i++) ctx16.submit();
       await ctx16.sync();
       fp16Ms = (performance.now() - t1) / iters;
-      speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
       ctx16.destroy();
     }
+
+    const speedupFp32 = `${(baselineMs / fp32Ms).toFixed(2)}x`;
+    const speedupFp16 = fp16Ms !== null ? `${(baselineMs / fp16Ms).toFixed(2)}x` : 'N/A';
 
     addRow({
       category: 'Data Movement',
       name: 'Matrix Transpose (Shared-Memory 16x16)',
       shape: `[${shape.join(',')}]`,
+      baselineMs,
       fp32Ms,
       fp16Ms,
-      speedup,
+      speedupFp32,
+      speedupFp16,
     });
   }
 
