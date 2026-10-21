@@ -20,6 +20,31 @@ for (const model of MODELS) {
   const program = JSON.parse(fs.readFileSync(progPath, 'utf8'));
   const oldWeightsBuf = fs.readFileSync(weightsPath);
 
+  const weightScales = new Map();
+  if (model === 'depthart') {
+    // The decoder's penultimate ReLU produces values above 65504 on photographs,
+    // even though the final depth fits FP16. Rebalance the adjacent convolutions:
+    // ReLU(W*x+b)/16, followed by (16*V)*h+c, preserves the FP32 computation and
+    // leaves headroom for FP16 activations and partial sums. Powers of two do not
+    // change the significand when the scaled weights remain representable.
+    const [hidden, output] = program.chain.slice(-2);
+    const hiddenOut = hidden.args.at(-1);
+    if (
+      hidden.name !== 'et_vk.conv_with_clamp.default' ||
+      output.name !== 'et_vk.conv_with_clamp.default' ||
+      output.args[0] !== hiddenOut ||
+      program.values[hidden.args[9]].value !== 0 ||
+      program.values[hidden.args[10]].value < 1e30 ||
+      program.values[output.args[1]].shape.slice(2).some((dim) => dim !== 1) ||
+      program.chain.filter((op) => op.args.slice(0, -1).includes(hiddenOut)).length !== 1
+    ) {
+      throw new Error('DepthART decoder changed: verify FP16 range balancing before conversion');
+    }
+    weightScales.set(hidden.args[1], 1 / 16);
+    weightScales.set(hidden.args[2], 1 / 16);
+    weightScales.set(output.args[1], 16);
+  }
+
   // We will build a new weights buffer
   const newWeightsChunks = [];
   let currentOffset = 0;
@@ -47,7 +72,10 @@ for (const model of MODELS) {
         numel
       );
 
-      const f16Slice = new Float16Array(f32Slice);
+      const scale = weightScales.get(i) ?? 1;
+      const f16Slice = new Float16Array(
+        scale === 1 ? f32Slice : Float32Array.from(f32Slice, (value) => value * scale)
+      );
       const f16Buf = Buffer.from(f16Slice.buffer, f16Slice.byteOffset, f16Slice.byteLength);
 
       v.weightsOffset = currentOffset;

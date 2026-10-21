@@ -75,6 +75,9 @@ describe('depthart program (full ExecuTorch graph)', () => {
       let beyondTol = 0;
       const tolerance = 1.0;
       for (let i = 0; i < actual.length; i++) {
+        if (!Number.isFinite(actual[i])) {
+          throw new Error(`Non-finite FP32 depth at index ${i}: ${actual[i]}`);
+        }
         const diff = Math.abs(actual[i] - expected[i]);
         if (diff > maxDiff) {
           maxDiff = diff;
@@ -123,6 +126,9 @@ describe('depthart program (full ExecuTorch graph)', () => {
     // Check against FP32 reference with FP16 tolerance (values reach 1e4)
     let maxDiff = 0;
     for (let i = 0; i < actual.length; i++) {
+      if (!Number.isFinite(actual[i])) {
+        throw new Error(`Non-finite FP16 depth at index ${i}: ${actual[i]}`);
+      }
       const diff = Math.abs(actual[i] - expected[i]);
       if (diff > maxDiff) maxDiff = diff;
     }

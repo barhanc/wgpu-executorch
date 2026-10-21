@@ -46,19 +46,22 @@ function renderTask(task: Task): void {
   const node = cloneTemplate('task-template');
   fill(node, '.task-title', task.title);
 
-  const precisionSelect = node.querySelector('.precision-select') as HTMLSelectElement;
+  const precisionToggle = node.querySelector('.precision-toggle') as HTMLInputElement;
+  let supportsF16 = false;
+  let pipelineStarting = false;
   if (navigator.gpu) {
-    void navigator.gpu.requestAdapter().then((adapter) => {
-      if (adapter && !adapter.features.has('shader-f16')) {
-        const f16Opt = precisionSelect.querySelector(
-          'option[value="float16"]'
-        ) as HTMLOptionElement | null;
-        if (f16Opt) {
-          f16Opt.disabled = true;
-          f16Opt.textContent = 'FP16 (unsupported)';
-        }
-      }
-    });
+    void navigator.gpu
+      .requestAdapter()
+      .then((adapter) => {
+        supportsF16 = adapter?.features.has('shader-f16') ?? false;
+        precisionToggle.disabled = !supportsF16 || pipelineStarting;
+        precisionToggle.closest('label')!.title = supportsF16
+          ? 'Switch between FP32 and FP16'
+          : 'FP16 is unsupported on this device';
+      })
+      .catch(() => {
+        precisionToggle.closest('label')!.title = 'WebGPU is unavailable';
+      });
   }
 
   const tip = node.querySelector('.metrics-tip') as HTMLElement;
@@ -78,6 +81,8 @@ function renderTask(task: Task): void {
   const startBtn = node.querySelector('.action') as HTMLButtonElement;
 
   const setStatus = (text: string, state: 'idle' | 'starting' | 'live' | 'error') => {
+    pipelineStarting = state === 'starting';
+    precisionToggle.disabled = !supportsF16 || pipelineStarting;
     statusText.textContent = text;
     statusDot.classList.toggle('live', state === 'live');
     statusDot.classList.toggle('error', state === 'error');
@@ -119,7 +124,7 @@ function renderTask(task: Task): void {
         await video.play();
 
         setStatus('loading model', 'starting');
-        const precision = precisionSelect.value as Precision;
+        const precision: Precision = precisionToggle.checked ? 'float16' : 'float32';
         await runPipeline(precision);
 
         setStatus('camera live', 'live');
@@ -142,12 +147,12 @@ function renderTask(task: Task): void {
     })();
   });
 
-  precisionSelect.addEventListener('change', () => {
+  precisionToggle.addEventListener('change', () => {
     if (stream && stopLoop) {
       void (async () => {
         try {
           setStatus('switching model', 'starting');
-          const precision = precisionSelect.value as Precision;
+          const precision: Precision = precisionToggle.checked ? 'float16' : 'float32';
           await runPipeline(precision);
           setStatus('camera live', 'live');
         } catch (error) {

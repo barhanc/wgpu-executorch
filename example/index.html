@@ -31,11 +31,20 @@
           <a class="back" href="#/">← all demos</a>
           <h2 class="task-title"></h2>
           <div class="precision-control">
-            <label for="precision-select" class="precision-label">Precision</label>
-            <select id="precision-select" class="precision-select" aria-label="Model precision">
-              <option value="float32">FP32</option>
-              <option value="float16">FP16</option>
-            </select>
+            <span class="precision-label">Precision</span>
+            <label class="precision-switch">
+              <input
+                class="precision-toggle"
+                type="checkbox"
+                role="switch"
+                aria-label="Use FP16 precision"
+                disabled
+              />
+              <span class="precision-track" aria-hidden="true">
+                <span>FP32</span>
+                <span>FP16</span>
+              </span>
+            </label>
           </div>
         </div>
 
