@@ -130,7 +130,7 @@
       <div>
         <h1>⚡ wgpu-executorch Hardware Benchmark</h1>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">
-          Direct WebGPU operator benchmarking: FP32 vs FP16 on real machine GPU
+          Hardware benchmarking on real GPU: Baseline (main branch) vs. Optimized FP32 vs. Native FP16
         </p>
       </div>
       <button id="run-btn" class="btn">Re-run Benchmark</button>
@@ -146,11 +146,13 @@
         <thead>
           <tr>
             <th>Category</th>
-            <th>Operator / Kernel</th>
+            <th>Operator / Model</th>
             <th>Tensor Shape</th>
-            <th style="text-align: right;">FP32</th>
-            <th style="text-align: right;">FP16</th>
-            <th style="text-align: right;">Speedup</th>
+            <th style="text-align: right;">Baseline (main)</th>
+            <th style="text-align: right;">Optimized FP32</th>
+            <th style="text-align: right;">Native FP16</th>
+            <th style="text-align: right;">FP32 Speedup</th>
+            <th style="text-align: right;">FP16 Speedup</th>
           </tr>
         </thead>
         <tbody id="results-body"></tbody>
