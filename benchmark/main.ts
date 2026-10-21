@@ -27,6 +27,49 @@ function makeF16(numel: number): Float16Array {
   return arr;
 }
 
+async function measureMedianMs(
+  ctx: { submit: () => void; sync: () => Promise<void> },
+  warmup = 3,
+  runs = 9
+): Promise<number> {
+  for (let w = 0; w < warmup; w++) {
+    ctx.submit();
+    await ctx.sync();
+  }
+  const samples: number[] = [];
+  for (let i = 0; i < runs; i++) {
+    const t0 = performance.now();
+    ctx.submit();
+    await ctx.sync();
+    samples.push(performance.now() - t0);
+  }
+  samples.sort((a, b) => a - b);
+  const mid = Math.floor(samples.length / 2);
+  return samples.length % 2 === 0 ? (samples[mid - 1] + samples[mid]) / 2 : samples[mid];
+}
+
+async function measureBatchedMedianMs(
+  ctx: { submit: () => void; sync: () => Promise<void> },
+  batchSize = 25,
+  warmupBatches = 2,
+  measuredBatches = 5
+): Promise<number> {
+  for (let w = 0; w < warmupBatches; w++) {
+    for (let i = 0; i < batchSize; i++) ctx.submit();
+    await ctx.sync();
+  }
+  const samples: number[] = [];
+  for (let b = 0; b < measuredBatches; b++) {
+    const t0 = performance.now();
+    for (let i = 0; i < batchSize; i++) ctx.submit();
+    await ctx.sync();
+    samples.push((performance.now() - t0) / batchSize);
+  }
+  samples.sort((a, b) => a - b);
+  const mid = Math.floor(samples.length / 2);
+  return samples.length % 2 === 0 ? (samples[mid - 1] + samples[mid]) / 2 : samples[mid];
+}
+
 async function run() {
   const statusEl = document.getElementById('status')!;
   const infoEl = document.getElementById('info')!;
@@ -83,7 +126,8 @@ async function run() {
     displayName: string,
     inShape: number[],
     outShape: number[],
-    iters = 5
+    warmup = 3,
+    runs = 9
   ) => {
     statusEl.innerText = `Benchmarking full model: ${displayName} (Baseline - main)...`;
 
@@ -100,13 +144,7 @@ async function run() {
       const out = baseCtx.tensor('float32', outShape);
 
       baseCtx.recordProgram(program, weights, [inp, out]);
-      baseCtx.submit();
-      await baseCtx.sync();
-
-      const tb = performance.now();
-      for (let i = 0; i < iters; i++) baseCtx.submit();
-      await baseCtx.sync();
-      baselineMs = (performance.now() - tb) / iters;
+      baselineMs = await measureMedianMs(baseCtx, warmup, runs);
       baseCtx.destroy();
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -127,13 +165,7 @@ async function run() {
       const out = ctx32.tensor('float32', outShape);
 
       ctx32.recordProgram(program, weights, [inp, out]);
-      ctx32.submit();
-      await ctx32.sync();
-
-      const t0 = performance.now();
-      for (let i = 0; i < iters; i++) ctx32.submit();
-      await ctx32.sync();
-      fp32Ms = (performance.now() - t0) / iters;
+      fp32Ms = await measureMedianMs(ctx32, warmup, runs);
       ctx32.destroy();
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -157,13 +189,7 @@ async function run() {
         const out = ctx16.tensor('float16', outShape);
 
         ctx16.recordProgram(program, weights, [inp, out]);
-        ctx16.submit();
-        await ctx16.sync();
-
-        const t1 = performance.now();
-        for (let i = 0; i < iters; i++) ctx16.submit();
-        await ctx16.sync();
-        fp16Ms = (performance.now() - t1) / iters;
+        fp16Ms = await measureMedianMs(ctx16, warmup, runs);
         speedupFp16 = baselineMs
           ? `${(baselineMs / fp16Ms).toFixed(2)}x`
           : `${(fp32Ms / fp16Ms).toFixed(2)}x`;
@@ -221,12 +247,7 @@ async function run() {
     const bb = baseCtx.tensor('float32', [N, N]).setData(makeF32(N * N));
     const bout = baseCtx.tensor('float32', [M, N]);
     baseCtx.recordShader(baselineShaders.mm, [ba, bb, bout]);
-    baseCtx.submit();
-    await baseCtx.sync();
-    const tb = performance.now();
-    for (let i = 0; i < iters; i++) baseCtx.submit();
-    await baseCtx.sync();
-    const baselineMs = (performance.now() - tb) / iters;
+    const baselineMs = await measureBatchedMedianMs(baseCtx, iters);
     baseCtx.destroy();
 
     // Optimized FP32
@@ -235,14 +256,7 @@ async function run() {
     const b32 = ctx32.tensor('float32', [N, N]).setData(makeF32(N * N));
     const out32 = ctx32.tensor('float32', [M, N]);
     ctx32.recordShader(shaders.mm, [a32, b32, out32]);
-
-    ctx32.submit();
-    await ctx32.sync();
-
-    const t0 = performance.now();
-    for (let i = 0; i < iters; i++) ctx32.submit();
-    await ctx32.sync();
-    const fp32Ms = (performance.now() - t0) / iters;
+    const fp32Ms = await measureBatchedMedianMs(ctx32, iters);
     ctx32.destroy();
 
     // Native FP16
@@ -253,14 +267,7 @@ async function run() {
       const b16 = ctx16.tensor('float16', [N, N]).setData(makeF16(N * N));
       const out16 = ctx16.tensor('float16', [M, N]);
       ctx16.recordShader(shaders.mm, [a16, b16, out16]);
-
-      ctx16.submit();
-      await ctx16.sync();
-
-      const t1 = performance.now();
-      for (let i = 0; i < iters; i++) ctx16.submit();
-      await ctx16.sync();
-      fp16Ms = (performance.now() - t1) / iters;
+      fp16Ms = await measureBatchedMedianMs(ctx16, iters);
       ctx16.destroy();
     }
 
@@ -294,12 +301,7 @@ async function run() {
     const bb = baseCtx.tensor('float32', [B, N, N]).setData(makeF32(B * N * N));
     const bout = baseCtx.tensor('float32', [B, M, N]);
     baseCtx.recordShader(baselineShaders.bmm, [ba, bb, bout]);
-    baseCtx.submit();
-    await baseCtx.sync();
-    const tb = performance.now();
-    for (let i = 0; i < iters; i++) baseCtx.submit();
-    await baseCtx.sync();
-    const baselineMs = (performance.now() - tb) / iters;
+    const baselineMs = await measureBatchedMedianMs(baseCtx, iters);
     baseCtx.destroy();
 
     // Optimized FP32
@@ -308,14 +310,7 @@ async function run() {
     const b32 = ctx32.tensor('float32', [B, N, N]).setData(makeF32(B * N * N));
     const out32 = ctx32.tensor('float32', [B, M, N]);
     ctx32.recordShader(shaders.bmm, [a32, b32, out32]);
-
-    ctx32.submit();
-    await ctx32.sync();
-
-    const t0 = performance.now();
-    for (let i = 0; i < iters; i++) ctx32.submit();
-    await ctx32.sync();
-    const fp32Ms = (performance.now() - t0) / iters;
+    const fp32Ms = await measureBatchedMedianMs(ctx32, iters);
     ctx32.destroy();
 
     // Native FP16
@@ -326,14 +321,7 @@ async function run() {
       const b16 = ctx16.tensor('float16', [B, N, N]).setData(makeF16(B * N * N));
       const out16 = ctx16.tensor('float16', [B, M, N]);
       ctx16.recordShader(shaders.bmm, [a16, b16, out16]);
-
-      ctx16.submit();
-      await ctx16.sync();
-
-      const t1 = performance.now();
-      for (let i = 0; i < iters; i++) ctx16.submit();
-      await ctx16.sync();
-      fp16Ms = (performance.now() - t1) / iters;
+      fp16Ms = await measureBatchedMedianMs(ctx16, iters);
       ctx16.destroy();
     }
 
@@ -453,12 +441,7 @@ async function run() {
         bout,
       ]);
     }
-    baseCtx.submit();
-    await baseCtx.sync();
-    const tb = performance.now();
-    for (let i = 0; i < c.iters; i++) baseCtx.submit();
-    await baseCtx.sync();
-    const baselineMs = (performance.now() - tb) / c.iters;
+    const baselineMs = await measureBatchedMedianMs(baseCtx, c.iters);
     baseCtx.destroy();
 
     // FP32
@@ -498,13 +481,7 @@ async function run() {
       ]);
     }
 
-    ctx32.submit();
-    await ctx32.sync();
-
-    const t0 = performance.now();
-    for (let i = 0; i < c.iters; i++) ctx32.submit();
-    await ctx32.sync();
-    const fp32Ms = (performance.now() - t0) / c.iters;
+    const fp32Ms = await measureBatchedMedianMs(ctx32, c.iters);
     ctx32.destroy();
 
     // FP16
@@ -546,13 +523,7 @@ async function run() {
         ]);
       }
 
-      ctx16.submit();
-      await ctx16.sync();
-
-      const t1 = performance.now();
-      for (let i = 0; i < c.iters; i++) ctx16.submit();
-      await ctx16.sync();
-      fp16Ms = (performance.now() - t1) / c.iters;
+      fp16Ms = await measureBatchedMedianMs(ctx16, c.iters);
       ctx16.destroy();
     }
 
@@ -822,12 +793,7 @@ async function run() {
     const bb = baseCtx.tensor('float32', shape).setData(makeF32(numel));
     const bout = baseCtx.tensor('float32', shape);
     baseCtx.recordShader(baselineShaders.mul, [ba, bb, bout]);
-    baseCtx.submit();
-    await baseCtx.sync();
-    const tb = performance.now();
-    for (let i = 0; i < iters; i++) baseCtx.submit();
-    await baseCtx.sync();
-    const baselineMs = (performance.now() - tb) / iters;
+    const baselineMs = await measureBatchedMedianMs(baseCtx, iters);
     baseCtx.destroy();
 
     // FP32
@@ -836,14 +802,7 @@ async function run() {
     const b32 = ctx32.tensor('float32', shape).setData(makeF32(numel));
     const out32 = ctx32.tensor('float32', shape);
     ctx32.recordShader(shaders.mul, [a32, b32, out32]);
-
-    ctx32.submit();
-    await ctx32.sync();
-
-    const t0 = performance.now();
-    for (let i = 0; i < iters; i++) ctx32.submit();
-    await ctx32.sync();
-    const fp32Ms = (performance.now() - t0) / iters;
+    const fp32Ms = await measureBatchedMedianMs(ctx32, iters);
     ctx32.destroy();
 
     // FP16
@@ -854,14 +813,7 @@ async function run() {
       const b16 = ctx16.tensor('float16', shape).setData(makeF16(numel));
       const out16 = ctx16.tensor('float16', shape);
       ctx16.recordShader(shaders.mul, [a16, b16, out16]);
-
-      ctx16.submit();
-      await ctx16.sync();
-
-      const t1 = performance.now();
-      for (let i = 0; i < iters; i++) ctx16.submit();
-      await ctx16.sync();
-      fp16Ms = (performance.now() - t1) / iters;
+      fp16Ms = await measureBatchedMedianMs(ctx16, iters);
       ctx16.destroy();
     }
 
@@ -892,12 +844,7 @@ async function run() {
     const ba = baseCtx.tensor('float32', shape).setData(makeF32(numel));
     const bout = baseCtx.tensor('float32', shape);
     baseCtx.recordShader(baselineShaders.permuteCopy, [ba, [1, 0], bout]);
-    baseCtx.submit();
-    await baseCtx.sync();
-    const tb = performance.now();
-    for (let i = 0; i < iters; i++) baseCtx.submit();
-    await baseCtx.sync();
-    const baselineMs = (performance.now() - tb) / iters;
+    const baselineMs = await measureBatchedMedianMs(baseCtx, iters);
     baseCtx.destroy();
 
     // FP32
@@ -905,14 +852,7 @@ async function run() {
     const a32 = ctx32.tensor('float32', shape).setData(makeF32(numel));
     const out32 = ctx32.tensor('float32', shape);
     ctx32.recordShader(shaders.permuteCopy, [a32, [1, 0], out32]);
-
-    ctx32.submit();
-    await ctx32.sync();
-
-    const t0 = performance.now();
-    for (let i = 0; i < iters; i++) ctx32.submit();
-    await ctx32.sync();
-    const fp32Ms = (performance.now() - t0) / iters;
+    const fp32Ms = await measureBatchedMedianMs(ctx32, iters);
     ctx32.destroy();
 
     // FP16
@@ -922,14 +862,7 @@ async function run() {
       const a16 = ctx16.tensor('float16', shape).setData(makeF16(numel));
       const out16 = ctx16.tensor('float16', shape);
       ctx16.recordShader(shaders.permuteCopy, [a16, [1, 0], out16]);
-
-      ctx16.submit();
-      await ctx16.sync();
-
-      const t1 = performance.now();
-      for (let i = 0; i < iters; i++) ctx16.submit();
-      await ctx16.sync();
-      fp16Ms = (performance.now() - t1) / iters;
+      fp16Ms = await measureBatchedMedianMs(ctx16, iters);
       ctx16.destroy();
     }
 
