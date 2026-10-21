@@ -3,6 +3,7 @@ import {
   WgpuExecutionContext as BaselineContext,
   shaders as baselineShaders,
 } from './baseline-main/src';
+import { packConvHwc4F32, packDwHwc4F32, packConvHwc4F16, packDwHwc4F16 } from '../utils/pack_hwc4';
 
 interface BenchItem {
   category: string;
@@ -571,6 +572,249 @@ async function run() {
     });
   }
 
+  // 3.5. HWC4 Vectorized Convolutions (Channels-Last)
+  const hwc4Configs = [
+    {
+      category: 'HWC4 Convolution',
+      label: 'Conv2D 1x1 HWC4 (Barrier-free)',
+      b: 1,
+      cIn: 128,
+      cOut: 128,
+      h: 56,
+      w: 56,
+      kh: 1,
+      kw: 1,
+      stride: [1, 1],
+      pad: [0, 0],
+      groups: 1,
+      withClamp: false,
+      iters: 25,
+    },
+    {
+      category: 'HWC4 Convolution',
+      label: 'Conv2D 3x3 DW HWC4 (4x Vectorized)',
+      b: 1,
+      cIn: 64,
+      cOut: 64,
+      h: 56,
+      w: 56,
+      kh: 3,
+      kw: 3,
+      stride: [1, 1],
+      pad: [1, 1],
+      groups: 64,
+      withClamp: false,
+      iters: 25,
+    },
+    {
+      category: 'HWC4 Convolution',
+      label: 'ConvWithClamp 1x1 HWC4 (Barrier-free)',
+      b: 1,
+      cIn: 128,
+      cOut: 128,
+      h: 56,
+      w: 56,
+      kh: 1,
+      kw: 1,
+      stride: [1, 1],
+      pad: [0, 0],
+      groups: 1,
+      withClamp: true,
+      iters: 25,
+    },
+    {
+      category: 'HWC4 Convolution',
+      label: 'ConvWithClamp 3x3 DW HWC4 (4x Vectorized)',
+      b: 1,
+      cIn: 64,
+      cOut: 64,
+      h: 56,
+      w: 56,
+      kh: 3,
+      kw: 3,
+      stride: [1, 1],
+      pad: [1, 1],
+      groups: 64,
+      withClamp: true,
+      iters: 25,
+    },
+  ];
+
+  for (const hc of hwc4Configs) {
+    statusEl.innerText = `Benchmarking ${hc.label}...`;
+
+    const inNchwShape = [hc.b, hc.cIn, hc.h, hc.w];
+    const wNchwShape =
+      hc.groups === hc.cOut ? [hc.cOut, 1, hc.kh, hc.kw] : [hc.cOut, hc.cIn, hc.kh, hc.kw];
+    const outNchwShape = [hc.b, hc.cOut, hc.h, hc.w];
+
+    const inNumel = inNchwShape.reduce((a, b) => a * b, 1);
+    const wNumel = wNchwShape.reduce((a, b) => a * b, 1);
+
+    // Baseline (NCHW)
+    const baseCtx = new BaselineContext(device);
+    const bin = baseCtx.tensor('float32', inNchwShape).setData(makeF32(inNumel));
+    const bw = baseCtx.tensor('float32', wNchwShape).setData(makeF32(wNumel));
+    const bb = baseCtx.tensor('float32', [hc.cOut]).setData(makeF32(hc.cOut));
+    const bout = baseCtx.tensor('float32', outNchwShape);
+
+    if (hc.withClamp) {
+      baseCtx.recordShader(baselineShaders.convWithClamp, [
+        bin,
+        bw,
+        bb,
+        hc.stride,
+        hc.pad,
+        [1, 1],
+        false,
+        [0, 0],
+        hc.groups,
+        0.0,
+        6.0,
+        bout,
+      ]);
+    } else {
+      baseCtx.recordShader(baselineShaders.convolution, [
+        bin,
+        bw,
+        bb,
+        hc.stride,
+        hc.pad,
+        [1, 1],
+        false,
+        [0, 0],
+        hc.groups,
+        bout,
+      ]);
+    }
+    baseCtx.submit();
+    await baseCtx.sync();
+    const tb = performance.now();
+    for (let i = 0; i < hc.iters; i++) baseCtx.submit();
+    await baseCtx.sync();
+    const baselineMs = (performance.now() - tb) / hc.iters;
+    baseCtx.destroy();
+
+    // FP32 HWC4
+    const rawW32 = makeF32(wNumel);
+    const packedW32 =
+      hc.groups === hc.cOut
+        ? packDwHwc4F32(rawW32, hc.cOut, hc.kh, hc.kw)
+        : packConvHwc4F32(rawW32, hc.cOut, hc.cIn, hc.kh, hc.kw);
+
+    const ctx32 = new WgpuExecutionContext(device);
+    const in32 = ctx32.tensor('float32', [hc.b, hc.h, hc.w, hc.cIn]).setData(makeF32(inNumel));
+    const w32 = ctx32.tensor('float32', [packedW32.length]).setData(packedW32);
+    const b32 = ctx32.tensor('float32', [hc.cOut]).setData(makeF32(hc.cOut));
+    const out32 = ctx32.tensor('float32', [hc.b, hc.h, hc.w, hc.cOut]);
+
+    if (hc.withClamp) {
+      ctx32.recordShader(shaders.convWithClampHwc4, [
+        in32,
+        w32,
+        b32,
+        hc.stride,
+        hc.pad,
+        [1, 1],
+        false,
+        [0, 0],
+        hc.groups,
+        0.0,
+        6.0,
+        out32,
+      ]);
+    } else {
+      ctx32.recordShader(shaders.convolutionHwc4, [
+        in32,
+        w32,
+        b32,
+        hc.stride,
+        hc.pad,
+        [1, 1],
+        false,
+        [0, 0],
+        hc.groups,
+        out32,
+      ]);
+    }
+    ctx32.submit();
+    await ctx32.sync();
+
+    const t0 = performance.now();
+    for (let i = 0; i < hc.iters; i++) ctx32.submit();
+    await ctx32.sync();
+    const fp32Ms = (performance.now() - t0) / hc.iters;
+    ctx32.destroy();
+
+    // FP16 HWC4
+    let fp16Ms: number | null = null;
+    if (hasF16) {
+      const rawW16 = makeF16(wNumel);
+      const packedW16 =
+        hc.groups === hc.cOut
+          ? packDwHwc4F16(rawW16, hc.cOut, hc.kh, hc.kw)
+          : packConvHwc4F16(rawW16, hc.cOut, hc.cIn, hc.kh, hc.kw);
+
+      const ctx16 = new WgpuExecutionContext(device);
+      const in16 = ctx16.tensor('float16', [hc.b, hc.h, hc.w, hc.cIn]).setData(makeF16(inNumel));
+      const w16 = ctx16.tensor('float16', [packedW16.length]).setData(packedW16);
+      const b16 = ctx16.tensor('float16', [hc.cOut]).setData(makeF16(hc.cOut));
+      const out16 = ctx16.tensor('float16', [hc.b, hc.h, hc.w, hc.cOut]);
+
+      if (hc.withClamp) {
+        ctx16.recordShader(shaders.convWithClampHwc4, [
+          in16,
+          w16,
+          b16,
+          hc.stride,
+          hc.pad,
+          [1, 1],
+          false,
+          [0, 0],
+          hc.groups,
+          0.0,
+          6.0,
+          out16,
+        ]);
+      } else {
+        ctx16.recordShader(shaders.convolutionHwc4, [
+          in16,
+          w16,
+          b16,
+          hc.stride,
+          hc.pad,
+          [1, 1],
+          false,
+          [0, 0],
+          hc.groups,
+          out16,
+        ]);
+      }
+      ctx16.submit();
+      await ctx16.sync();
+
+      const t1 = performance.now();
+      for (let i = 0; i < hc.iters; i++) ctx16.submit();
+      await ctx16.sync();
+      fp16Ms = (performance.now() - t1) / hc.iters;
+      ctx16.destroy();
+    }
+
+    const speedupFp32 = `${(baselineMs / fp32Ms).toFixed(2)}x`;
+    const speedupFp16 = fp16Ms !== null ? `${(baselineMs / fp16Ms).toFixed(2)}x` : 'N/A';
+
+    addRow({
+      category: hc.category,
+      name: hc.label,
+      shape: `[${inNchwShape.join(',')}] * [${wNchwShape.join(',')}]`,
+      baselineMs,
+      fp32Ms,
+      fp16Ms,
+      speedupFp32,
+      speedupFp16,
+    });
+  }
+
   // 4. Activations
   const actConfigs = [
     { name: 'ReLU (Vec4)', shader: shaders.relu, baseShader: baselineShaders.relu },
@@ -945,6 +1189,91 @@ async function run() {
       fp16Ms,
       speedupFp32,
       speedupFp16,
+    });
+  }
+
+  // Layout Conversions: to_hwc4 & to_chw
+  {
+    const lShape = [1, 64, 56, 56];
+    const lNumel = 1 * 64 * 56 * 56;
+    const lHwc4Shape = [1, 56, 56, 64];
+    const iters = 40;
+
+    // FP32 to_hwc4
+    statusEl.innerText = `Benchmarking layout conversion to_hwc4...`;
+    const ctx32 = new WgpuExecutionContext(device);
+    const in32 = ctx32.tensor('float32', lShape).setData(makeF32(lNumel));
+    const hwc4Fp32 = ctx32.tensor('float32', lHwc4Shape);
+    ctx32.recordShader(shaders.toHwc4, [in32, hwc4Fp32]);
+    ctx32.submit();
+    await ctx32.sync();
+    const t0 = performance.now();
+    for (let i = 0; i < iters; i++) ctx32.submit();
+    await ctx32.sync();
+    const toHwc4Fp32Ms = (performance.now() - t0) / iters;
+
+    // FP32 to_chw
+    const outChw32 = ctx32.tensor('float32', lShape);
+    const ctxChw32 = new WgpuExecutionContext(device);
+    ctxChw32.recordShader(shaders.toChw, [hwc4Fp32, outChw32]);
+    ctxChw32.submit();
+    await ctxChw32.sync();
+    const t0chw = performance.now();
+    for (let i = 0; i < iters; i++) ctxChw32.submit();
+    await ctxChw32.sync();
+    const toChwFp32Ms = (performance.now() - t0chw) / iters;
+    ctx32.destroy();
+    ctxChw32.destroy();
+
+    // FP16
+    let toHwc4Fp16Ms: number | null = null;
+    let toChwFp16Ms: number | null = null;
+    if (hasF16) {
+      const ctx16 = new WgpuExecutionContext(device);
+      const in16 = ctx16.tensor('float16', lShape).setData(makeF16(lNumel));
+      const hwc4Fp16 = ctx16.tensor('float16', lHwc4Shape);
+      ctx16.recordShader(shaders.toHwc4, [in16, hwc4Fp16]);
+      ctx16.submit();
+      await ctx16.sync();
+      const t1 = performance.now();
+      for (let i = 0; i < iters; i++) ctx16.submit();
+      await ctx16.sync();
+      toHwc4Fp16Ms = (performance.now() - t1) / iters;
+
+      const outChw16 = ctx16.tensor('float16', lShape);
+      const ctxChw16 = new WgpuExecutionContext(device);
+      ctxChw16.recordShader(shaders.toChw, [hwc4Fp16, outChw16]);
+      ctxChw16.submit();
+      await ctxChw16.sync();
+      const t1chw = performance.now();
+      for (let i = 0; i < iters; i++) ctxChw16.submit();
+      await ctxChw16.sync();
+      toChwFp16Ms = (performance.now() - t1chw) / iters;
+
+      ctx16.destroy();
+      ctxChw16.destroy();
+    }
+
+    addRow({
+      category: 'Layout Conversion',
+      name: 'to_hwc4 (NCHW -> HWC4)',
+      shape: `[${lShape.join(',')}]`,
+      baselineMs: null,
+      fp32Ms: toHwc4Fp32Ms,
+      fp16Ms: toHwc4Fp16Ms,
+      speedupFp32: 'Direct',
+      speedupFp16: toHwc4Fp16Ms !== null ? `${(toHwc4Fp32Ms / toHwc4Fp16Ms).toFixed(2)}x` : 'N/A',
+    });
+
+    addRow({
+      category: 'Layout Conversion',
+      name: 'to_chw (HWC4 -> NCHW)',
+      shape: `[${lShape.join(',')}]`,
+      baselineMs: null,
+      fp32Ms: toChwFp32Ms,
+      fp16Ms: toChwFp16Ms,
+      speedupFp32: 'Direct',
+      speedupFp16: toChwFp16Ms !== null ? `${(toChwFp32Ms / toChwFp16Ms).toFixed(2)}x` : 'N/A',
     });
   }
 
