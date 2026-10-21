@@ -21,6 +21,7 @@ import { maxPool2d } from './max-pool-2d';
 
 // Resampling
 import { upsampleBilinear2d } from './upsample-bilinear2d';
+import { upsampleBilinear2dHwc4 } from './upsample-bilinear2d-hwc4';
 import { upsampleNearest2d } from './upsample-nearest-2d';
 
 // Shape & data movement
@@ -49,7 +50,7 @@ export const shaders = {
   convolution, convWithClamp, maxPool2d,
   convolutionHwc4, convWithClampHwc4,
   // Resampling
-  upsampleBilinear2d, upsampleNearest2d,
+  upsampleBilinear2d, upsampleBilinear2dHwc4, upsampleNearest2d,
   // Shape & data movement
   cat, constantPadNd, splitWithSizesCopy, permuteCopy, viewCopy,
   clone, squeezeCopy, unsqueezeCopy, prepack,
