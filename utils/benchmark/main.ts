@@ -1,4 +1,4 @@
-import { WgpuExecutionContext, shaders, type Program } from '../src';
+import { WgpuExecutionContext, shaders, type Program } from '../../src';
 import {
   WgpuExecutionContext as BaselineContext,
   shaders as baselineShaders,

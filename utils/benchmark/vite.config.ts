@@ -17,7 +17,7 @@ function benchmarkReporterPlugin(): Plugin {
             try {
               const data = JSON.parse(body);
               fs.writeFileSync(
-                resolve(import.meta.dirname, '../benchmark-results.json'),
+                resolve(import.meta.dirname, '../../benchmark-results.json'),
                 JSON.stringify(data, null, 2)
               );
 
@@ -81,14 +81,14 @@ function benchmarkReporterPlugin(): Plugin {
 
 export default defineConfig({
   base: './',
-  publicDir: resolve(import.meta.dirname, '../example/public'),
+  publicDir: resolve(import.meta.dirname, '../../example/public'),
   plugins: [benchmarkReporterPlugin()],
   server: {
     port: 5178,
     host: true,
   },
   build: {
-    outDir: resolve(import.meta.dirname, '../dist-benchmark'),
+    outDir: resolve(import.meta.dirname, '../../dist-benchmark'),
     emptyOutDir: true,
   },
 });
