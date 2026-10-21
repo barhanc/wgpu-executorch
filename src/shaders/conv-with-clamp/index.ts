@@ -14,11 +14,13 @@ import { SHADER_CONV_WITH_CLAMP_TILE32 } from './conv-with-clamp-tile32.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_TILE32 } from './conv-with-clamp-1x1-tile32.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_TILE32_F16 } from './conv-with-clamp-1x1-tile32-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_DEPTHWISE } from './conv-with-clamp-depthwise.wgsl';
+import { SHADER_CONV_WITH_CLAMP_DEPTHWISE_3X3 } from './conv-with-clamp-depthwise-3x3.wgsl';
 import { SHADER_CONV_WITH_CLAMP_F16 } from './conv-with-clamp-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_GEMM_F16 } from './conv-with-clamp-gemm-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_TILE64_F16 } from './conv-with-clamp-tile64-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_TILE32_F16 } from './conv-with-clamp-tile32-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_DEPTHWISE_F16 } from './conv-with-clamp-depthwise-f16.wgsl';
+import { SHADER_CONV_WITH_CLAMP_DEPTHWISE_3X3_F16 } from './conv-with-clamp-depthwise-3x3-f16.wgsl';
 
 const name = 'et_vk.conv_with_clamp.default';
 
@@ -187,9 +189,26 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   const isDepthwise =
     groups === oc && ic === oc && icPerGroup === 1 && kh * kw <= 49 && n * oc <= 65535;
 
+  const isDepthwise3x3 =
+    isDepthwise &&
+    kh === 3 &&
+    kw === 3 &&
+    sH === 1 &&
+    sW === 1 &&
+    pH === 1 &&
+    pW === 1 &&
+    dH === 1 &&
+    dW === 1;
+
   let code = isF16 ? SHADER_CONV_WITH_CLAMP_F16 : SHADER_CONV_WITH_CLAMP;
   if (isDepthwise) {
-    code = isF16 ? SHADER_CONV_WITH_CLAMP_DEPTHWISE_F16 : SHADER_CONV_WITH_CLAMP_DEPTHWISE;
+    if (isDepthwise3x3) {
+      code = isF16
+        ? SHADER_CONV_WITH_CLAMP_DEPTHWISE_3X3_F16
+        : SHADER_CONV_WITH_CLAMP_DEPTHWISE_3X3;
+    } else {
+      code = isF16 ? SHADER_CONV_WITH_CLAMP_DEPTHWISE_F16 : SHADER_CONV_WITH_CLAMP_DEPTHWISE;
+    }
   } else if (groups === 1) {
     if (is1x1Tile32) {
       code = isF16 ? SHADER_CONV_WITH_CLAMP_1X1_TILE32_F16 : SHADER_CONV_WITH_CLAMP_1X1_TILE32;

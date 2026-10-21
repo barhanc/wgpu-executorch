@@ -14,6 +14,7 @@ import { SHADER_CONV2D_TILE32 } from './conv2d-tile32.wgsl';
 import { SHADER_CONV2D_1X1_TILE32 } from './conv2d-1x1-tile32.wgsl';
 import { SHADER_CONV2D_1X1_TILE32_F16 } from './conv2d-1x1-tile32-f16.wgsl';
 import { SHADER_CONV2D_DEPTHWISE } from './conv2d-depthwise.wgsl';
+import { SHADER_CONV2D_DEPTHWISE_3X3 } from './conv2d-depthwise-3x3.wgsl';
 import { SHADER_CONV_TRANSPOSE2D } from './conv-transpose2d.wgsl';
 import { SHADER_CONV_TRANSPOSE2D_F16 } from './conv-transpose2d-f16.wgsl';
 import { SHADER_CONV2D_F16 } from './conv2d-f16.wgsl';
@@ -21,6 +22,7 @@ import { SHADER_CONV2D_GEMM_F16 } from './conv2d-gemm-f16.wgsl';
 import { SHADER_CONV2D_TILE64_F16 } from './conv2d-tile64-f16.wgsl';
 import { SHADER_CONV2D_TILE32_F16 } from './conv2d-tile32-f16.wgsl';
 import { SHADER_CONV2D_DEPTHWISE_F16 } from './conv2d-depthwise-f16.wgsl';
+import { SHADER_CONV2D_DEPTHWISE_3X3_F16 } from './conv2d-depthwise-3x3-f16.wgsl';
 
 const name = 'aten.convolution.default';
 
@@ -197,11 +199,26 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
     kh * kw <= 49 &&
     b * oc <= 65535;
 
+  const isDepthwise3x3 =
+    isDepthwise &&
+    kh === 3 &&
+    kw === 3 &&
+    sH === 1 &&
+    sW === 1 &&
+    pH === 1 &&
+    pW === 1 &&
+    dH === 1 &&
+    dW === 1;
+
   let code = isF16 ? SHADER_CONV2D_F16 : SHADER_CONV2D;
   if (transposed) {
     code = isF16 ? SHADER_CONV_TRANSPOSE2D_F16 : SHADER_CONV_TRANSPOSE2D;
   } else if (isDepthwise) {
-    code = isF16 ? SHADER_CONV2D_DEPTHWISE_F16 : SHADER_CONV2D_DEPTHWISE;
+    if (isDepthwise3x3) {
+      code = isF16 ? SHADER_CONV2D_DEPTHWISE_3X3_F16 : SHADER_CONV2D_DEPTHWISE_3X3;
+    } else {
+      code = isF16 ? SHADER_CONV2D_DEPTHWISE_F16 : SHADER_CONV2D_DEPTHWISE;
+    }
   } else if (groups === 1) {
     if (is1x1Tile32) {
       code = isF16 ? SHADER_CONV2D_1X1_TILE32_F16 : SHADER_CONV2D_1X1_TILE32;
