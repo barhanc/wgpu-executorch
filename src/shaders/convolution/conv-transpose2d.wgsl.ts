@@ -44,6 +44,15 @@ override stride_x: u32 = 4294967295u; // = count_x * wg_size; set by host for 2D
 // contributes iff (oh + pH - kh*dH) is divisible by sH and ih in range (the
 // scatter-inversion). CPU-derisked vs torch.conv_transpose2d to fp64 round-off
 // (/tmp/convtr_derisk.py), incl. non-square spatial + non-square kernel.
+override fuse_silu: bool = false;
+
+// Preserve the convolution output and sigmoid's storage precision at the fusion boundary.
+fn conv_epilogue(value: f32) -> f32 {
+  if (!fuse_silu) { return value; }
+  let gate = f32(1.0) / (f32(1.0) + exp(-value));
+  return value * gate;
+}
+
 @compute @workgroup_size(wg_size)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let total = params.B * params.OC * params.OH * params.OW;
@@ -96,6 +105,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       }
     }
   }
-  out[i] = acc;
+  out[i] = conv_epilogue(acc);
 }
 `;

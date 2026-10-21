@@ -37,6 +37,16 @@ var<workgroup> a_sub: array<array<vec4<f16>, 4>, 64>;
 // b_sub: 16 K elements x 64 spatial elements (16 vec4s) = 256 vec4s (2 KB)
 var<workgroup> b_sub: array<array<vec4<f16>, 16>, 16>;
 
+override fuse_silu: bool = false;
+
+// Preserve the convolution output and sigmoid's storage precision at the fusion boundary.
+fn conv_epilogue(value: f16) -> f16 {
+  if (!fuse_silu) { return value; }
+  let stored = f16(quantizeToF16(f32(value)));
+  let gate = f16(quantizeToF16(f32(f16(1.0) / (f16(1.0) + exp(-stored)))));
+  return stored * gate;
+}
+
 @compute @workgroup_size(16, 16, 1)
 fn main(
   @builtin(workgroup_id) wg_id: vec3<u32>,
@@ -182,7 +192,7 @@ fn main(
         if (n < N) {
           // Reuse the batch decoded for input gathering instead of dividing again.
           let out_base = col_b[kk] * (M - 1u) * ohw + n;
-          out[m * ohw + out_base] = acc_v[kk];
+          out[m * ohw + out_base] = conv_epilogue(acc_v[kk]);
         }
       }
     }

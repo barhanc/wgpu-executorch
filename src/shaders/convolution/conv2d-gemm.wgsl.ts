@@ -32,6 +32,15 @@ var<workgroup> b_sub: array<array<vec4<f32>, 8>, 32>;
 fn gK() -> u32 { return params.IC * params.KH * params.KW; }
 fn gN() -> u32 { return params.B * params.OH * params.OW; }
 
+override fuse_silu: bool = false;
+
+// Preserve the convolution output and sigmoid's storage precision at the fusion boundary.
+fn conv_epilogue(value: f32) -> f32 {
+  if (!fuse_silu) { return value; }
+  let gate = f32(1.0) / (f32(1.0) + exp(-value));
+  return value * gate;
+}
+
 @compute @workgroup_size(8, 8, 1)
 fn main(
   @builtin(workgroup_id) wg_id: vec3<u32>,
@@ -168,7 +177,7 @@ fn main(
           let b = col_b[ic];
           let oh = u32(col_oh_arr[ic]);
           let ow = u32(col_ow_arr[ic]);
-          out[((b * params.OC + m) * params.OH + oh) * params.OW + ow] = v[ic];
+          out[((b * params.OC + m) * params.OH + oh) * params.OW + ow] = conv_epilogue(v[ic]);
         }
       }
     }

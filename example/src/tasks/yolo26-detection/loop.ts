@@ -5,6 +5,7 @@
  */
 
 import { WgpuExecutionContext, type Program } from '../../../../src';
+import { optimizeProgram } from '../../../../utils/optimize-program';
 import type { Precision } from '../types';
 import {
   clearDetections,
@@ -113,7 +114,10 @@ export async function startFrameLoop(
     throw new Error('failed to fetch yolo26n model artifacts');
   }
 
-  const program = (await programRes.json()) as Program;
+  const { program } = optimizeProgram((await programRes.json()) as Program, {
+    aliasCopies: true,
+    fuseConvolutionSilu: true,
+  });
   const weights = await weightsRes.arrayBuffer();
 
   // Record the full pipeline once: model -> compaction -> draw.
