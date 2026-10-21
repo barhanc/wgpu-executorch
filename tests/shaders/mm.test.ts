@@ -160,4 +160,38 @@ describe('aten.mm.default', () => {
     }
     ctx.destroy();
   });
+
+  it('multiplies unaligned odd-shaped matrices (5x7 by 7x3 fallback path)', async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+
+    const [M, K, N] = [5, 7, 3];
+    const aData = new Float32Array(M * K);
+    const bData = new Float32Array(K * N);
+    const expected = new Float32Array(M * N);
+
+    for (let i = 0; i < aData.length; i++) aData[i] = (i % 5) - 2;
+    for (let i = 0; i < bData.length; i++) bData[i] = (i % 3) + 1;
+
+    for (let r = 0; r < M; r++) {
+      for (let c = 0; c < N; c++) {
+        let sum = 0;
+        for (let k = 0; k < K; k++) {
+          sum += aData[r * K + k] * bData[k * N + c];
+        }
+        expected[r * N + c] = sum;
+      }
+    }
+
+    const a = ctx.tensor('float32', [M, K]).setData(aData);
+    const b = ctx.tensor('float32', [K, N]).setData(bData);
+    const out = ctx.tensor('float32', [M, N]);
+
+    ctx.recordShader(shaders.mm, [a, b, out]);
+    ctx.submit();
+    await ctx.sync();
+
+    await expectTensorClose(out, Array.from(expected), 1e-4);
+    ctx.destroy();
+  });
 });

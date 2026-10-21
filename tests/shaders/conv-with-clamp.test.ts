@@ -207,4 +207,45 @@ describe('et_vk.conv_with_clamp.default', () => {
     await expectTensorClose(out, [0, 6], 1e-2);
     ctx.destroy();
   });
+
+  it('computes 1x1 conv-with-clamp with 64x64 register-tiled path', async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+
+    const [B, IC, IH, IW, OC] = [1, 16, 8, 8, 64];
+    const inData = new Float32Array(B * IC * IH * IW);
+    for (let i = 0; i < inData.length; i++) inData[i] = (i % 13) * 0.5 - 2.0;
+
+    const wData = new Float32Array(OC * IC * 1 * 1);
+    for (let i = 0; i < wData.length; i++) wData[i] = (i % 7) * 0.1;
+
+    const inp = ctx.tensor('float32', [B, IC, IH, IW]).setData(inData);
+    const weight = ctx.tensor('float32', [OC, IC, 1, 1]).setData(wData);
+    const out = ctx.tensor('float32', [B, OC, IH, IW]);
+
+    ctx.recordShader(shaders.convWithClamp, [
+      inp,
+      weight,
+      undefined,
+      [1, 1],
+      [0, 0],
+      [1, 1],
+      false,
+      [0, 0],
+      1,
+      0.0,
+      5.0,
+      out,
+    ]);
+    ctx.submit();
+    await ctx.sync();
+
+    // Verify all outputs are clamped to [0.0, 5.0]
+    const actual = new Float32Array(await out.getData());
+    for (let i = 0; i < actual.length; i++) {
+      expect(actual[i]).toBeGreaterThanOrEqual(0.0);
+      expect(actual[i]).toBeLessThanOrEqual(5.0001);
+    }
+    ctx.destroy();
+  });
 });

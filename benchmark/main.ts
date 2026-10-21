@@ -1,4 +1,4 @@
-import { WgpuExecutionContext, shaders } from '../src';
+import { WgpuExecutionContext, shaders, type Program } from '../src';
 
 interface BenchItem {
   category: string;
@@ -68,6 +68,100 @@ async function run() {
     bodyEl.appendChild(tr);
     tableEl.style.display = 'table';
   };
+
+  // 0. End-to-End ExecuTorch Models
+  const benchmarkModel = async (
+    modelName: string,
+    displayName: string,
+    inShape: number[],
+    outShape: number[],
+    iters = 5
+  ) => {
+    statusEl.innerText = `Benchmarking full model: ${displayName} (FP32)...`;
+
+    let fp32Ms = 0;
+    try {
+      const progRes = await fetch(`/assets/${modelName}/program.json`);
+      const program = (await progRes.json()) as Program;
+      const weightsRes = await fetch(`/assets/${modelName}/weights.bin`);
+      const weights = await weightsRes.arrayBuffer();
+
+      const ctx32 = new WgpuExecutionContext(device);
+      const inNumel = inShape.reduce((a, b) => a * b, 1);
+      const inp = ctx32.tensor('float32', inShape).setData(makeF32(inNumel));
+      const out = ctx32.tensor('float32', outShape);
+
+      ctx32.recordProgram(program, weights, [inp, out]);
+      ctx32.submit();
+      await ctx32.sync();
+
+      const t0 = performance.now();
+      for (let i = 0; i < iters; i++) ctx32.submit();
+      await ctx32.sync();
+      fp32Ms = (performance.now() - t0) / iters;
+      ctx32.destroy();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn(`Could not run ${displayName} FP32:`, e);
+      return;
+    }
+
+    let fp16Ms: number | null = null;
+    let speedup = 'N/A';
+    if (hasF16) {
+      statusEl.innerText = `Benchmarking full model: ${displayName} (FP16)...`;
+      try {
+        const progRes = await fetch(`/assets/${modelName}/program-fp16.json`);
+        const program = (await progRes.json()) as Program;
+        const weightsRes = await fetch(`/assets/${modelName}/weights-fp16.bin`);
+        const weights = await weightsRes.arrayBuffer();
+
+        const ctx16 = new WgpuExecutionContext(device);
+        const inNumel = inShape.reduce((a, b) => a * b, 1);
+        const inp = ctx16.tensor('float16', inShape).setData(makeF16(inNumel));
+        const out = ctx16.tensor('float16', outShape);
+
+        ctx16.recordProgram(program, weights, [inp, out]);
+        ctx16.submit();
+        await ctx16.sync();
+
+        const t1 = performance.now();
+        for (let i = 0; i < iters; i++) ctx16.submit();
+        await ctx16.sync();
+        fp16Ms = (performance.now() - t1) / iters;
+        speedup = `${(fp32Ms / fp16Ms).toFixed(2)}x`;
+        ctx16.destroy();
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn(`Could not run ${displayName} FP16:`, e);
+      }
+    }
+
+    addRow({
+      category: 'End-to-End Model',
+      name: displayName,
+      shape: `[${inShape.join(',')}] → [${outShape.join(',')}]`,
+      fp32Ms,
+      fp16Ms,
+      speedup,
+    });
+  };
+
+  await benchmarkModel(
+    'depthart',
+    'DepthART Monocular Depth',
+    [1, 3, 448, 448],
+    [1, 1, 448, 448],
+    4
+  );
+  await benchmarkModel('yolo26n', 'YOLO26-N Object Detection', [1, 3, 640, 640], [1, 84, 8400], 4);
+  await benchmarkModel(
+    'selfie-segmentation',
+    'Selfie Segmentation',
+    [1, 3, 256, 256],
+    [1, 1, 256, 256],
+    5
+  );
 
   // 1. Matrix Multiplication (MM)
   const mmConfigs = [

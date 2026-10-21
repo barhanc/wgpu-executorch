@@ -64,4 +64,38 @@ describe('aten.bmm.default', () => {
     expect(actual[7]).toBeCloseTo(24, 1);
     ctx.destroy();
   });
+
+  it('multiplies 64x64 batched matrices (tiled BMM path)', async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+
+    const [B, N] = [2, 64];
+    const aData = new Float32Array(B * N * N);
+    const bData = new Float32Array(B * N * N);
+
+    // Identity matrices for each batch
+    for (let b = 0; b < B; b++) {
+      for (let i = 0; i < N; i++) {
+        aData[b * (N * N) + i * N + i] = 1.0;
+        for (let j = 0; j < N; j++) {
+          bData[b * (N * N) + i * N + j] = (i + j) * 0.1;
+        }
+      }
+    }
+
+    const a = ctx.tensor('float32', [B, N, N]).setData(aData);
+    const b = ctx.tensor('float32', [B, N, N]).setData(bData);
+    const out = ctx.tensor('float32', [B, N, N]);
+
+    ctx.recordShader(shaders.bmm, [a, b, out]);
+    ctx.submit();
+    await ctx.sync();
+
+    // A * I = A
+    const actual = new Float32Array(await out.getData());
+    for (let i = 0; i < actual.length; i++) {
+      expect(actual[i]).toBeCloseTo(bData[i], 3);
+    }
+    ctx.destroy();
+  });
 });
