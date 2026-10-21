@@ -6,6 +6,8 @@ import { createComputeBundle } from '../../command';
 import { SHADER_CONV_WITH_CLAMP } from './conv-with-clamp.wgsl';
 import { SHADER_CONV_WITH_CLAMP_GEMM } from './conv-with-clamp-gemm.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1 } from './conv-with-clamp-1x1.wgsl';
+import { SHADER_CONV_WITH_CLAMP_1X1_SINGLE_CHANNEL } from './conv-with-clamp-1x1-single-channel.wgsl';
+import { SHADER_CONV_WITH_CLAMP_1X1_SINGLE_CHANNEL_F16 } from './conv-with-clamp-1x1-single-channel-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_VEC4 } from './conv-with-clamp-1x1-vec4.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_64X64 } from './conv-with-clamp-1x1-tile64.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_64X64_F16 } from './conv-with-clamp-1x1-tile64-f16.wgsl';
@@ -170,6 +172,15 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   // grouped/depthwise convs use the direct kernel.
   const is1x1 =
     kh === 1 && kw === 1 && sH === 1 && sW === 1 && pH === 0 && pW === 0 && dH === 1 && dW === 1;
+  // A single output channel leaves almost all rows of a GEMM tile unused.
+  const isSingleChannel =
+    is1x1 &&
+    groups === 1 &&
+    oc === 1 &&
+    ic <= 32 &&
+    (expectedHout * expectedWout) % 4 === 0 &&
+    Math.ceil((expectedHout * expectedWout) / 256) <= 65535 &&
+    n <= 65535;
   const is1x1Vec4 =
     is1x1 && ic % 4 === 0 && (expectedHout * expectedWout) % 4 === 0 && oc % 4 === 0;
   const is1x1Tile32 =
@@ -201,7 +212,11 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
     dW === 1;
 
   let code = isF16 ? SHADER_CONV_WITH_CLAMP_F16 : SHADER_CONV_WITH_CLAMP;
-  if (isDepthwise) {
+  if (isSingleChannel) {
+    code = isF16
+      ? SHADER_CONV_WITH_CLAMP_1X1_SINGLE_CHANNEL_F16
+      : SHADER_CONV_WITH_CLAMP_1X1_SINGLE_CHANNEL;
+  } else if (isDepthwise) {
     if (isDepthwise3x3) {
       code = isF16
         ? SHADER_CONV_WITH_CLAMP_DEPTHWISE_3X3_F16
@@ -232,7 +247,11 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   let workgroupCountZ = 1;
   let constants: Record<string, number>;
 
-  if (isDepthwise) {
+  if (isSingleChannel) {
+    workgroupCountX = Math.ceil((expectedHout * expectedWout) / 256);
+    workgroupCountY = n;
+    constants = {};
+  } else if (isDepthwise) {
     // Spatial 16x16 workgroup per (batch, oc) channel slice with 2x2 register tiling (32x32 per workgroup)
     workgroupCountX = Math.ceil(expectedWout / 32);
     workgroupCountY = Math.ceil(expectedHout / 32);

@@ -22,6 +22,11 @@ export async function expectTensorClose(
   let maxDiff = 0;
   let maxIdx = 0;
   for (let i = 0; i < actual.length; i++) {
+    if (!Number.isFinite(actual[i]) || !Number.isFinite(expected[i])) {
+      throw new Error(
+        `Non-finite tensor value at index ${i}: got ${actual[i]}, expected ${expected[i]}`
+      );
+    }
     const diff = Math.abs(actual[i] - expected[i]);
     if (diff > maxDiff) {
       maxDiff = diff;

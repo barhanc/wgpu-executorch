@@ -422,6 +422,17 @@ async function run() {
   // 3. Convolutions (Tile64 3x3, Pointwise 1x1, Depthwise, ConvWithClamp)
   const convConfigs = [
     {
+      shader: shaders.convWithClamp,
+      category: 'Convolution',
+      label: 'DepthART output 1x1 (single channel)',
+      inShape: [1, 16, 448, 448],
+      wShape: [1, 16, 1, 1],
+      groups: 1,
+      stride: [1, 1],
+      pad: [0, 0],
+      iters: 25,
+    },
+    {
       shader: shaders.convolution,
       category: 'Convolution',
       label: 'Conv2D 3x3 (Tile64)',

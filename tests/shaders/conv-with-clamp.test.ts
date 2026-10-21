@@ -3,6 +3,92 @@ import { WgpuExecutionContext, shaders } from '../../src';
 import { setupGPU, expectTensorClose } from '../helpers';
 
 describe('et_vk.conv_with_clamp.default', () => {
+  for (const dtype of ['float32', 'float16'] as const) {
+    for (const hasBias of [false, true]) {
+      it(`computes single-channel pointwise ${dtype} with batches, a vector tail, and bias=${hasBias}`, async () => {
+        const device = await setupGPU();
+        const ctx = new WgpuExecutionContext(device);
+        const array = dtype === 'float16' ? Float16Array : Float32Array;
+        const spatial = 260; // 65 vectors: the last workgroup has only one active lane.
+        const values = new array(2 * 3 * spatial);
+        for (let i = 0; i < values.length; i++) values[i] = (i % 13) - 6;
+        const input = ctx.tensor(dtype, [2, 3, 1, spatial]).setData(values);
+        const weights = ctx.tensor(dtype, [1, 3, 1, 1]).setData(new array([1, -2, 0.5]));
+        const bias = hasBias ? ctx.tensor(dtype, [1]).setData(new array([3])) : undefined;
+        const out = ctx.tensor(dtype, [2, 1, 1, spatial]);
+        const expected = Array.from({ length: 2 * spatial }, (value, i) => {
+          const base = Math.floor(i / spatial) * 3 * spatial + (i % spatial);
+          return Math.min(
+            10,
+            Math.max(
+              -5,
+              values[base] -
+                2 * values[base + spatial] +
+                0.5 * values[base + 2 * spatial] +
+                (hasBias ? 3 : 0)
+            )
+          );
+        });
+        try {
+          ctx.recordShader(shaders.convWithClamp, [
+            input,
+            weights,
+            bias,
+            [1, 1],
+            [0, 0],
+            [1, 1],
+            false,
+            [0, 0],
+            1,
+            -5,
+            10,
+            out,
+          ]);
+          ctx.submit();
+          await ctx.sync();
+          await expectTensorClose(out, expected);
+        } finally {
+          ctx.destroy();
+        }
+      });
+    }
+  }
+
+  it('widens FP16 pointwise products before accumulation and clamps before narrowing', async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+    const input = ctx
+      .tensor('float16', [1, 3, 1, 4])
+      .setData(
+        new Float16Array([
+          60000, 60000, -60000, -60000, -60000, -60000, 60000, 60000, 4, 60000, -4, -60000,
+        ])
+      );
+    const weights = ctx.tensor('float16', [1, 3, 1, 1]).setData(new Float16Array([2, 2, 2]));
+    const out = ctx.tensor('float16', [1, 1, 1, 4]);
+    try {
+      ctx.recordShader(shaders.convWithClamp, [
+        input,
+        weights,
+        undefined,
+        [1, 1],
+        [0, 0],
+        [1, 1],
+        false,
+        [0, 0],
+        1,
+        -100,
+        100,
+        out,
+      ]);
+      ctx.submit();
+      await ctx.sync();
+      await expectTensorClose(out, [8, 100, -8, -100]);
+    } finally {
+      ctx.destroy();
+    }
+  });
+
   it('computes 2D dense convolution with clamp and bias', async () => {
     const device = await setupGPU();
     const ctx = new WgpuExecutionContext(device);
