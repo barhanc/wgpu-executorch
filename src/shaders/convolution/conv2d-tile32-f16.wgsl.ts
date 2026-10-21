@@ -101,6 +101,33 @@ fn main(
     }
   }
 
+  // For 3x3 kernels, validity is invariant across input channels. Interior
+  // columns get all nine bits; borders and spatial tails get only valid taps.
+  var tap_mask: array<u32, 4>;
+  if (kernel_height() == 3u && kernel_width() == 3u) {
+    for (var col = 0u; col < 4u; col++) {
+      var mask = 0u;
+      if (col_valid0[col]) {
+        if (col_ih_base0[col] >= 0 && col_iw_base0[col] >= 0 &&
+            col_ih_base0[col] + 2 * dH < i32(params.IH) &&
+            col_iw_base0[col] + 2 * dW < i32(params.IW)) {
+          mask = 0x1ffu;
+        } else {
+          for (var ky = 0u; ky < 3u; ky++) {
+            let iy = col_ih_base0[col] + i32(ky) * dH;
+            for (var kx = 0u; kx < 3u; kx++) {
+              let ix = col_iw_base0[col] + i32(kx) * dW;
+              if (iy >= 0 && iy < i32(params.IH) && ix >= 0 && ix < i32(params.IW)) {
+                mask = mask | (1u << (ky * 3u + kx));
+              }
+            }
+          }
+        }
+      }
+      tap_mask[col] = mask;
+    }
+  }
+
   let num_tiles = (K + 15u) >> 4u;
   for (var t = 0u; t < num_tiles; t = t + 1u) {
     let k4_start = t << 2u;
@@ -121,13 +148,12 @@ fn main(
 
       var b_vec0 = vec4<f16>(0.0h);
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
-        if (col_valid0[kk]) {
-          let ih0 = col_ih_base0[kk] + kh0;
-          let iw0 = col_iw_base0[kk] + kw0;
-          if (ih0 >= 0 && ih0 < iH && iw0 >= 0 && iw0 < iW) {
-            let in_idx0 = (col_b0[kk] * params.IC + ic0) * in_hw + u32(ih0) * in_w + u32(iw0);
-            b_vec0[kk] = input[in_idx0];
-          }
+        let ih0 = col_ih_base0[kk] + kh0;
+        let iw0 = col_iw_base0[kk] + kw0;
+        if ((kernel_height() == 3u && kernel_width() == 3u && (tap_mask[kk] & (1u << rem0)) != 0u) ||
+            ((kernel_height() != 3u || kernel_width() != 3u) && col_valid0[kk] && ih0 >= 0 && ih0 < iH && iw0 >= 0 && iw0 < iW)) {
+          let in_idx0 = (col_b0[kk] * params.IC + ic0) * in_hw + u32(ih0) * in_w + u32(iw0);
+          b_vec0[kk] = input[in_idx0];
         }
       }
       b_sub[b_r0][b_c4_0] = b_vec0;
@@ -144,13 +170,12 @@ fn main(
 
       var b_vec1 = vec4<f16>(0.0h);
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
-        if (col_valid0[kk]) {
-          let ih1 = col_ih_base0[kk] + kh1;
-          let iw1 = col_iw_base0[kk] + kw1;
-          if (ih1 >= 0 && ih1 < iH && iw1 >= 0 && iw1 < iW) {
-            let in_idx1 = (col_b0[kk] * params.IC + ic1) * in_hw + u32(ih1) * in_w + u32(iw1);
-            b_vec1[kk] = input[in_idx1];
-          }
+        let ih1 = col_ih_base0[kk] + kh1;
+        let iw1 = col_iw_base0[kk] + kw1;
+        if ((kernel_height() == 3u && kernel_width() == 3u && (tap_mask[kk] & (1u << rem1)) != 0u) ||
+            ((kernel_height() != 3u || kernel_width() != 3u) && col_valid0[kk] && ih1 >= 0 && ih1 < iH && iw1 >= 0 && iw1 < iW)) {
+          let in_idx1 = (col_b0[kk] * params.IC + ic1) * in_hw + u32(ih1) * in_w + u32(iw1);
+          b_vec1[kk] = input[in_idx1];
         }
       }
       b_sub[b_r1][b_c4_1] = b_vec1;

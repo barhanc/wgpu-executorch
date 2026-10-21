@@ -100,6 +100,33 @@ fn main(
     }
   }
 
+  // For 3x3 kernels, validity is invariant across input channels. Interior
+  // columns get all nine bits; borders and spatial tails get only valid taps.
+  var tap_mask: array<u32, 4>;
+  if (kernel_height() == 3u && kernel_width() == 3u) {
+    for (var col = 0u; col < 4u; col++) {
+      var mask = 0u;
+      if (col_valid[col]) {
+        if (col_ih_base[col] >= 0 && col_iw_base[col] >= 0 &&
+            col_ih_base[col] + 2 * dH < i32(params.IH) &&
+            col_iw_base[col] + 2 * dW < i32(params.IW)) {
+          mask = 0x1ffu;
+        } else {
+          for (var ky = 0u; ky < 3u; ky++) {
+            let iy = col_ih_base[col] + i32(ky) * dH;
+            for (var kx = 0u; kx < 3u; kx++) {
+              let ix = col_iw_base[col] + i32(kx) * dW;
+              if (iy >= 0 && iy < i32(params.IH) && ix >= 0 && ix < i32(params.IW)) {
+                mask = mask | (1u << (ky * 3u + kx));
+              }
+            }
+          }
+        }
+      }
+      tap_mask[col] = mask;
+    }
+  }
+
   let num_tiles = (K + 15u) >> 4u;
   for (var t = 0u; t < num_tiles; t = t + 1u) {
     let k_start = t << 4u;
@@ -122,13 +149,12 @@ fn main(
       let kw = i32(rem % kernel_width()) * dW;
 
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
-        if (col_valid[kk]) {
-          let ih = col_ih_base[kk] + kh;
-          let iw = col_iw_base[kk] + kw;
-          if (ih >= 0 && ih < iH && iw >= 0 && iw < iW) {
-            let ch_idx = col_b[kk] * params.IC + k_ic;
-            b_row[kk] = input[ch_idx * in_hw + u32(ih) * in_w + u32(iw)];
-          }
+        let ih = col_ih_base[kk] + kh;
+        let iw = col_iw_base[kk] + kw;
+        if ((kernel_height() == 3u && kernel_width() == 3u && (tap_mask[kk] & (1u << rem)) != 0u) ||
+            ((kernel_height() != 3u || kernel_width() != 3u) && col_valid[kk] && ih >= 0 && ih < iH && iw >= 0 && iw < iW)) {
+          let ch_idx = col_b[kk] * params.IC + k_ic;
+          b_row[kk] = input[ch_idx * in_hw + u32(ih) * in_w + u32(iw)];
         }
       }
     }

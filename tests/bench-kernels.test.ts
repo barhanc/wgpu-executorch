@@ -39,6 +39,8 @@ it.skipIf(!process.env.WGPU_KERNEL_BASELINE)(
       [64, 64, 80, 3, 2, 1],
       [32, 32, 40, 3, 1, 1],
       [24, 16, 448, 3, 1, 1],
+      [48, 48, 112, 3, 1, 1],
+      [48, 24, 224, 3, 1, 1],
       [8, 12, 17, 2, 1, 0],
     ];
     for (const dtype of ['float32', 'float16'] as const) {
@@ -156,7 +158,10 @@ it.skipIf(!process.env.WGPU_KERNEL_BASELINE)(
           const original = execFileSync('git', ['show', `${baseline}:${path}`], {
             encoding: 'utf8',
           }).split('`')[1];
-          const before = createComputeBundle(device, original, bindings);
+          // Apply the same geometry specialization when the baseline supports it;
+          // otherwise this comparison would also measure an already-landed change.
+          const beforeConstants = original.includes('override kernel_h') ? constants : {};
+          const before = createComputeBundle(device, original, bindings, beforeConstants);
           const after = createComputeBundle(device, candidate, bindings, constants);
           const compileError = await device.popErrorScope();
           if (compileError) throw compileError;
