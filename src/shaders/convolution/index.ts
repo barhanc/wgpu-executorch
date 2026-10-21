@@ -11,6 +11,8 @@ import { SHADER_CONV2D_1X1_64X64 } from './conv2d-1x1-tile64.wgsl';
 import { SHADER_CONV2D_1X1_64X64_F16 } from './conv2d-1x1-tile64-f16.wgsl';
 import { SHADER_CONV2D_TILE64 } from './conv2d-tile64.wgsl';
 import { SHADER_CONV2D_TILE32 } from './conv2d-tile32.wgsl';
+import { SHADER_CONV2D_TILE16 } from './conv2d-tile16.wgsl';
+import { SHADER_CONV2D_TILE16_F16 } from './conv2d-tile16-f16.wgsl';
 import { SHADER_CONV2D_1X1_TILE32 } from './conv2d-1x1-tile32.wgsl';
 import { SHADER_CONV2D_1X1_TILE32_F16 } from './conv2d-1x1-tile32-f16.wgsl';
 import { SHADER_CONV2D_DEPTHWISE } from './conv2d-depthwise.wgsl';
@@ -181,6 +183,16 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
   const is1x1Vec4 = is1x1 && ic % 4 === 0 && (oh * ow) % 4 === 0 && oc % 4 === 0;
   const is1x1Tile32 = is1x1Vec4 && b === 1 && oc <= 32 && oh * ow >= 64 && ic >= 16;
   const is1x1Tile64 = is1x1Vec4 && b === 1 && oc > 32 && oh * ow >= 64 && ic >= 16;
+  // Smaller row tiles avoid unused channels; large spatial grids supply enough workgroups.
+  const isDenseTile16 =
+    !transposed &&
+    groups === 1 &&
+    kh === 3 &&
+    kw === 3 &&
+    oc >= 8 &&
+    oc <= 16 &&
+    b * oh * ow >= 4096 &&
+    ic % 4 === 0;
   const isDenseTile32 =
     !transposed &&
     groups === 1 &&
@@ -224,6 +236,8 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
       code = isF16 ? SHADER_CONV2D_1X1_TILE32_F16 : SHADER_CONV2D_1X1_TILE32;
     } else if (is1x1Tile64) {
       code = isF16 ? SHADER_CONV2D_1X1_64X64_F16 : SHADER_CONV2D_1X1_64X64;
+    } else if (isDenseTile16) {
+      code = isF16 ? SHADER_CONV2D_TILE16_F16 : SHADER_CONV2D_TILE16;
     } else if (isDenseTile32) {
       code = isF16 ? SHADER_CONV2D_TILE32_F16 : SHADER_CONV2D_TILE32;
     } else if (isDenseTile64) {
@@ -265,6 +279,12 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
     workgroupCountX = Math.ceil((oh * ow) / 64);
     workgroupCountY = Math.ceil(oc / 64);
     constants = {};
+  } else if (isDenseTile16) {
+    // 16x64 register-tiled GEMM for narrow dense 3x3 convolution.
+    workgroupCountX = Math.ceil((b * oh * ow) / 64);
+    workgroupCountY = Math.ceil(oc / 16);
+    // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
+    constants = { kernel_h: kh, kernel_w: kw };
   } else if (isDenseTile32) {
     // 32x64 register-tiled GEMM for general dense convolution
     workgroupCountX = Math.ceil((b * oh * ow) / 64);

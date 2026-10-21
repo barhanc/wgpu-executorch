@@ -2,7 +2,7 @@ import { describe, it } from 'vitest';
 import { WgpuExecutionContext, shaders } from '../../src';
 import { expectTensorClose, setupGPU } from '../helpers';
 
-// Exercise both tile heights, NCHW batches, spatial/channel tails, rectangular
+// Exercise all tile heights, NCHW batches, spatial/channel tails, rectangular
 // kernels, stride and dilation. Small dyadic values make a precise CPU oracle.
 const cases = [
   {
@@ -41,6 +41,88 @@ const cases = [
     kw: 3,
     stride: [1, 1],
     pad: [0, 1],
+    dilation: [1, 1],
+    bias: true,
+  },
+  // Large enough spatial grids select the narrow tile, including tails,
+  // multiple NCHW batches, stride/dilation and an all-border input.
+  {
+    batch: 2,
+    ic: 4,
+    oc: 13,
+    h: 67,
+    w: 131,
+    kh: 3,
+    kw: 3,
+    stride: [2, 2],
+    pad: [2, 2],
+    dilation: [2, 2],
+    bias: true,
+  },
+  {
+    batch: 1,
+    ic: 4,
+    oc: 8,
+    h: 65,
+    w: 65,
+    kh: 3,
+    kw: 3,
+    stride: [1, 1],
+    pad: [1, 1],
+    dilation: [1, 1],
+    bias: false,
+  },
+  {
+    batch: 1,
+    ic: 4,
+    oc: 16,
+    h: 1,
+    w: 4097,
+    kh: 3,
+    kw: 3,
+    stride: [1, 1],
+    pad: [1, 1],
+    dilation: [1, 1],
+    bias: false,
+  },
+  // Small-grid fallbacks: channel tails, dilation, stride and batch crossings.
+  {
+    batch: 2,
+    ic: 4,
+    oc: 13,
+    h: 11,
+    w: 17,
+    kh: 3,
+    kw: 3,
+    stride: [2, 1],
+    pad: [2, 2],
+    dilation: [2, 2],
+    bias: true,
+  },
+  {
+    batch: 1,
+    ic: 8,
+    oc: 8,
+    h: 9,
+    w: 11,
+    kh: 3,
+    kw: 3,
+    stride: [1, 1],
+    pad: [1, 1],
+    dilation: [1, 1],
+    bias: false,
+  },
+  // Just above the narrow range must keep the 32-row fallback.
+  {
+    batch: 1,
+    ic: 4,
+    oc: 17,
+    h: 9,
+    w: 11,
+    kh: 3,
+    kw: 3,
+    stride: [1, 1],
+    pad: [1, 1],
     dilation: [1, 1],
     bias: true,
   },

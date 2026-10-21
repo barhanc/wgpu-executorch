@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { it } from 'vitest';
+import { it, expect } from 'vitest';
 import { WgpuExecutionContext, createComputeBundle } from '../src';
 import { KernelTimingContext } from './helpers/kernel-timing';
 
@@ -33,16 +33,35 @@ it.skipIf(!process.env.WGPU_KERNEL_BASELINE)(
       [2, 400, 32, 400],
       [2, 64, 400, 400],
     ];
-    const convCases = [
-      [64, 64, 56, 3, 1, 1],
-      [960, 48, 14, 3, 1, 1],
-      [64, 64, 80, 3, 2, 1],
-      [32, 32, 40, 3, 1, 1],
+    const narrowCases = [
+      [16, 8, 160, 3, 1, 1],
+      [8, 16, 160, 3, 1, 1],
+      [32, 16, 80, 3, 1, 1],
+      [64, 16, 80, 3, 1, 1],
+      [16, 16, 64, 3, 1, 1],
+      [16, 16, 80, 3, 1, 1],
+      [32, 16, 40, 3, 1, 1],
+      [8, 16, 80, 3, 1, 1],
+      [16, 8, 80, 3, 1, 1],
+      [16, 16, 160, 3, 2, 1],
+      [32, 16, 20, 3, 1, 1],
+      [4, 13, 17, 3, 1, 1],
       [24, 16, 448, 3, 1, 1],
-      [48, 48, 112, 3, 1, 1],
-      [48, 24, 224, 3, 1, 1],
-      [8, 12, 17, 2, 1, 0],
     ];
+    const narrowOnly = process.env.WGPU_KERNEL_CASES === 'narrow';
+    const convCases = narrowOnly
+      ? narrowCases
+      : [
+          [64, 64, 56, 3, 1, 1],
+          [960, 48, 14, 3, 1, 1],
+          [64, 64, 80, 3, 2, 1],
+          [32, 32, 40, 3, 1, 1],
+          [24, 16, 448, 3, 1, 1],
+          [48, 48, 112, 3, 1, 1],
+          [48, 24, 224, 3, 1, 1],
+          [8, 12, 17, 2, 1, 0],
+          ...narrowCases.slice(0, 4),
+        ];
     for (const dtype of ['float32', 'float16'] as const) {
       if (dtype === 'float16' && !device.features.has('shader-f16')) continue;
       const array = dtype === 'float16' ? Float16Array : Float32Array;
@@ -52,7 +71,7 @@ it.skipIf(!process.env.WGPU_KERNEL_BASELINE)(
         for (let i = 0; i < length; i++) data[i] = (((i * 17 + 11) % 61) - 30) / 64;
         return data;
       };
-      for (const category of ['matrix', 'convolution', 'clamp']) {
+      for (const category of narrowOnly ? ['convolution'] : ['matrix', 'convolution', 'clamp']) {
         for (const shape of category === 'matrix' ? matrixCases : convCases) {
           const ctx = new WgpuExecutionContext(device);
           let path: string;
@@ -153,7 +172,14 @@ it.skipIf(!process.env.WGPU_KERNEL_BASELINE)(
           }
           const bindings = tensors.map((t, binding) => ({ binding, buffer: t.buffer }));
           bindings.push({ binding: bindings.length, buffer: params });
-          const candidate = readFileSync(path, 'utf8').split('`')[1];
+          const useNarrow =
+            category === 'convolution' &&
+            shape[1] >= 8 &&
+            shape[1] <= 16 &&
+            shape[3] === 3 &&
+            shape[0] % 4 === 0;
+          const candidatePath = useNarrow ? path.replace('-tile32', '-tile16') : path;
+          const candidate = readFileSync(candidatePath, 'utf8').split('`')[1];
           device.pushErrorScope('validation');
           const original = execFileSync('git', ['show', `${baseline}:${path}`], {
             encoding: 'utf8',
@@ -199,7 +225,23 @@ it.skipIf(!process.env.WGPU_KERNEL_BASELINE)(
               );
             }
           const median = samples.map((s) => [...s].sort((a, b) => a - b)[5]);
+          // Check output equivalence outside timing, including FP16 accumulation order.
+          const values = [];
+          const arrayType = dtype === 'float16' ? Float16Array : Float32Array;
+          for (const context of contexts) {
+            context.submit();
+            await context.sync();
+            values.push(new arrayType(await out.getData()));
+          }
+          let maxDelta = 0;
+          for (let i = 0; i < values[0].length; i++) {
+            if (!Number.isFinite(values[0][i]) || !Number.isFinite(values[1][i]))
+              throw new Error('Nonfinite convolution/matrix output');
+            maxDelta = Math.max(maxDelta, Math.abs(values[0][i] - values[1][i]));
+          }
+          expect(maxDelta).toBe(0);
           const entry = {
+            maxDelta,
             category,
             dtype,
             shape,
