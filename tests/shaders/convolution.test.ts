@@ -334,4 +334,117 @@ describe('aten.convolution.default', () => {
     await expectTensorClose(out, [2, 4, 6, 8, 5, 10, 15, 20], 1e-2);
     ctx.destroy();
   });
+
+  it('computes 1x1 convolution with Vec4 path', async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+
+    const [B, IC, IH, IW, OC] = [1, 4, 2, 2, 4];
+    const inData = new Float32Array(B * IC * IH * IW);
+    for (let i = 0; i < inData.length; i++) inData[i] = i + 1;
+
+    // Identity-like weights for 1x1
+    const wData = new Float32Array(OC * IC * 1 * 1);
+    for (let o = 0; o < OC; o++) {
+      for (let c = 0; c < IC; c++) {
+        wData[o * IC + c] = o === c ? 2 : 0;
+      }
+    }
+
+    const inp = ctx.tensor('float32', [B, IC, IH, IW]).setData(inData);
+    const weight = ctx.tensor('float32', [OC, IC, 1, 1]).setData(wData);
+    const out = ctx.tensor('float32', [B, OC, IH, IW]);
+
+    ctx.recordShader(shaders.convolution, [
+      inp,
+      weight,
+      undefined,
+      [1, 1],
+      [0, 0],
+      [1, 1],
+      false,
+      [0, 0],
+      1,
+      out,
+    ]);
+    ctx.submit();
+    await ctx.sync();
+
+    const actual = new Float32Array(await out.getData());
+    for (let o = 0; o < OC; o++) {
+      for (let s = 0; s < IH * IW; s++) {
+        expect(actual[o * (IH * IW) + s]).toBeCloseTo(inData[o * (IH * IW) + s] * 2, 4);
+      }
+    }
+    ctx.destroy();
+  });
+
+  it('computes 1x1 convolution with 64x64 register-tiled path', async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+
+    const [B, IC, IH, IW, OC] = [1, 16, 8, 8, 64];
+    const inData = new Float32Array(B * IC * IH * IW);
+    for (let i = 0; i < inData.length; i++) inData[i] = (i % 13) * 0.1;
+
+    const wData = new Float32Array(OC * IC * 1 * 1);
+    for (let i = 0; i < wData.length; i++) wData[i] = (i % 7) * 0.1;
+
+    const inp = ctx.tensor('float32', [B, IC, IH, IW]).setData(inData);
+    const weight = ctx.tensor('float32', [OC, IC, 1, 1]).setData(wData);
+    const out = ctx.tensor('float32', [B, OC, IH, IW]);
+
+    ctx.recordShader(shaders.convolution, [
+      inp,
+      weight,
+      undefined,
+      [1, 1],
+      [0, 0],
+      [1, 1],
+      false,
+      [0, 0],
+      1,
+      out,
+    ]);
+    ctx.submit();
+    await ctx.sync();
+
+    // Verify element (0, 0, 0, 0): dot product of out_ch 0 with in_pos 0 across all IC
+    let expected0 = 0;
+    for (let c = 0; c < IC; c++) {
+      expected0 += inData[c * (IH * IW)] * wData[0 * IC + c];
+    }
+    const actual = new Float32Array(await out.getData());
+    expect(actual[0]).toBeCloseTo(expected0, 3);
+    ctx.destroy();
+  });
+
+  it('computes general grouped convolution (groups=2 fallback)', async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+
+    // groups = 2, IC = 4 (2 per group), OC = 4 (2 per group)
+    const inp = ctx.tensor('float32', [1, 4, 2, 2]).setData(new Float32Array(16).fill(1));
+    const weight = ctx.tensor('float32', [4, 2, 1, 1]).setData(new Float32Array(8).fill(2));
+    const out = ctx.tensor('float32', [1, 4, 2, 2]);
+
+    ctx.recordShader(shaders.convolution, [
+      inp,
+      weight,
+      undefined,
+      [1, 1],
+      [0, 0],
+      [1, 1],
+      false,
+      [0, 0],
+      2,
+      out,
+    ]);
+    ctx.submit();
+    await ctx.sync();
+
+    // Each out channel = sum over 2 input channels of 1 * 2 = 4
+    await expectTensorClose(out, new Array(16).fill(4), 1e-3);
+    ctx.destroy();
+  });
 });

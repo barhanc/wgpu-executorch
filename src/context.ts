@@ -182,7 +182,11 @@ export class WgpuExecutionContext {
     }
     this.#commands.push({
       kind: 'copy',
-      copy: { src: src.buffer, dst: dst.buffer, size: src.byteLength },
+      copy: {
+        src: src.buffer,
+        dst: dst.buffer,
+        size: Math.ceil(src.byteLength / 4) * 4,
+      },
     });
     return this;
   }

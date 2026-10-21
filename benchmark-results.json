@@ -1,0 +1,178 @@
+{
+  "gpu": {
+    "vendor": "nvidia",
+    "architecture": "turing",
+    "device": "",
+    "hasF16": true
+  },
+  "results": [
+    {
+      "category": "End-to-End Model",
+      "name": "DepthART Monocular Depth",
+      "shape": "[1,3,448,448] → [1,1,448,448]",
+      "fp32Ms": 35.44999998807907,
+      "fp16Ms": 19.55000001192093,
+      "speedup": "1.81x"
+    },
+    {
+      "category": "End-to-End Model",
+      "name": "YOLO26-N Object Detection",
+      "shape": "[1,3,640,640] → [1,84,8400]",
+      "fp32Ms": 18.650000005960464,
+      "fp16Ms": 16.075000017881393,
+      "speedup": "1.16x"
+    },
+    {
+      "category": "End-to-End Model",
+      "name": "Selfie Segmentation",
+      "shape": "[1,3,256,256] → [1,1,256,256]",
+      "fp32Ms": 1.8,
+      "fp16Ms": null,
+      "speedup": "N/A"
+    },
+    {
+      "category": "Linear Algebra",
+      "name": "MatMul (MM Vec4)",
+      "shape": "[256, 256] * [256, 256]",
+      "fp32Ms": 0.17599999904632568,
+      "fp16Ms": 0.16799999713897706,
+      "speedup": "1.05x"
+    },
+    {
+      "category": "Linear Algebra",
+      "name": "MatMul (MM Vec4)",
+      "shape": "[512, 512] * [512, 512]",
+      "fp32Ms": 0.4099999964237213,
+      "fp16Ms": 0.3649999976158142,
+      "speedup": "1.12x"
+    },
+    {
+      "category": "Linear Algebra",
+      "name": "MatMul (MM 64x64)",
+      "shape": "[1024, 1024] * [1024, 1024]",
+      "fp32Ms": 2.286666671435038,
+      "fp16Ms": 1.6666666666666667,
+      "speedup": "1.37x"
+    },
+    {
+      "category": "Linear Algebra",
+      "name": "MatMul (MM 64x64)",
+      "shape": "[2048, 2048] * [2048, 2048]",
+      "fp32Ms": 16.600000008940697,
+      "fp16Ms": 11.862499997019768,
+      "speedup": "1.40x"
+    },
+    {
+      "category": "Linear Algebra",
+      "name": "Batch MatMul (BMM)",
+      "shape": "[4, 64, 64] * [4, 64, 64]",
+      "fp32Ms": 0.2,
+      "fp16Ms": 0.18666666746139526,
+      "speedup": "1.07x"
+    },
+    {
+      "category": "Linear Algebra",
+      "name": "Batch MatMul (BMM)",
+      "shape": "[8, 128, 128] * [8, 128, 128]",
+      "fp32Ms": 0.2899999976158142,
+      "fp16Ms": 0.20500000119209288,
+      "speedup": "1.41x"
+    },
+    {
+      "category": "Convolution",
+      "name": "Conv2D 3x3 (Tile64)",
+      "shape": "[1,64,56,56] * [64,64,3,3]",
+      "fp32Ms": 0.5149999976158142,
+      "fp16Ms": 0.3449999988079071,
+      "speedup": "1.49x"
+    },
+    {
+      "category": "Convolution",
+      "name": "Conv2D 1x1 (Tile64)",
+      "shape": "[1,128,56,56] * [128,128,1,1]",
+      "fp32Ms": 0.16999999880790712,
+      "fp16Ms": 0.1899999976158142,
+      "speedup": "0.89x"
+    },
+    {
+      "category": "Convolution",
+      "name": "Conv2D 3x3 Depthwise",
+      "shape": "[1,64,56,56] * [64,1,3,3]",
+      "fp32Ms": 0.1559999990463257,
+      "fp16Ms": 0.16799999713897706,
+      "speedup": "0.93x"
+    },
+    {
+      "category": "Convolution",
+      "name": "ConvWithClamp 3x3 (Tile64)",
+      "shape": "[1,64,56,56] * [64,64,3,3]",
+      "fp32Ms": 0.6199999988079071,
+      "fp16Ms": 0.3200000047683716,
+      "speedup": "1.94x"
+    },
+    {
+      "category": "Convolution",
+      "name": "ConvWithClamp 1x1 (Tile64)",
+      "shape": "[1,128,56,56] * [128,128,1,1]",
+      "fp32Ms": 0.2149999976158142,
+      "fp16Ms": 0.2,
+      "speedup": "1.07x"
+    },
+    {
+      "category": "Activation",
+      "name": "ReLU (Vec4)",
+      "shape": "[1,64,56,56]",
+      "fp32Ms": 0.09000000059604644,
+      "fp16Ms": 0.15,
+      "speedup": "0.60x"
+    },
+    {
+      "category": "Activation",
+      "name": "Sigmoid (Vec4)",
+      "shape": "[1,64,56,56]",
+      "fp32Ms": 0.125,
+      "fp16Ms": 0.12249999940395355,
+      "speedup": "1.02x"
+    },
+    {
+      "category": "Activation",
+      "name": "Hardswish (Vec4)",
+      "shape": "[1,64,56,56]",
+      "fp32Ms": 0.12249999940395355,
+      "fp16Ms": 0.125,
+      "speedup": "0.98x"
+    },
+    {
+      "category": "Reduction",
+      "name": "Softmax (Last-Dim Vec4)",
+      "shape": "[128,1024]",
+      "fp32Ms": 0.3099999984105428,
+      "fp16Ms": 0.5700000007947286,
+      "speedup": "0.54x"
+    },
+    {
+      "category": "Pooling & Resampling",
+      "name": "MaxPool2D (2D Spatial Grid)",
+      "shape": "[1,64,112,112]",
+      "fp32Ms": 0.19199999809265136,
+      "fp16Ms": 0.19599999904632567,
+      "speedup": "0.98x"
+    },
+    {
+      "category": "Elementwise Math",
+      "name": "Elementwise Mul (Vec4)",
+      "shape": "[1,64,56,56]",
+      "fp32Ms": 0.06749999821186066,
+      "fp16Ms": 0.12750000059604644,
+      "speedup": "0.53x"
+    },
+    {
+      "category": "Data Movement",
+      "name": "Matrix Transpose (Shared-Memory 16x16)",
+      "shape": "[1024,1024]",
+      "fp32Ms": 0.16799999713897706,
+      "fp16Ms": 0.16,
+      "speedup": "1.05x"
+    }
+  ]
+}

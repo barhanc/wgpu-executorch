@@ -24,6 +24,14 @@ function makeInput(): Float32Array {
   return arr;
 }
 
+function makeInputF16(): Float16Array {
+  const arr = new Float16Array(INPUT_NUMEL);
+  for (let i = 0; i < INPUT_NUMEL; i++) {
+    arr[i] = (i % 251) / 250 - 0.5;
+  }
+  return arr;
+}
+
 function readArrayBuffer(path: string): ArrayBuffer {
   const buf = readFileSync(path);
   const copy = new ArrayBuffer(buf.byteLength);
@@ -88,4 +96,43 @@ describe('depthart program (full ExecuTorch graph)', () => {
       ctx.destroy();
     }
   );
+
+  it('executes the full operator chain in float16', { timeout: 600_000 }, async () => {
+    const device = await setupGPU();
+    const ctx = new WgpuExecutionContext(device);
+
+    const progPath = resolve(REPO_ROOT, 'example/public/assets/depthart/program-fp16.json');
+    const weightsPath = resolve(REPO_ROOT, 'example/public/assets/depthart/weights-fp16.bin');
+    const program = JSON.parse(readFileSync(progPath, 'utf8')) as Program;
+    const weights = readArrayBuffer(weightsPath);
+
+    const inp = ctx.tensor('float16', [...INPUT_SHAPE]).setData(makeInputF16());
+    const out = ctx.tensor('float16', [...OUTPUT_SHAPE]);
+
+    ctx.recordProgram(program, weights, [inp, out]);
+    ctx.submit();
+    await ctx.sync();
+
+    const actual = new Float16Array(await out.getData());
+    const expected = new Float32Array(readArrayBuffer(REFERENCE_PATH));
+
+    if (actual.length !== expected.length) {
+      throw new Error(`Output length mismatch: got ${actual.length}, expected ${expected.length}`);
+    }
+
+    // Check against FP32 reference with FP16 tolerance (values reach 1e4)
+    let maxDiff = 0;
+    for (let i = 0; i < actual.length; i++) {
+      const diff = Math.abs(actual[i] - expected[i]);
+      if (diff > maxDiff) maxDiff = diff;
+    }
+
+    // High-level correlation check: relative error should be small
+    const relDiff = maxDiff / 1e4;
+    if (relDiff > 0.05) {
+      throw new Error(`FP16 relative difference too high: ${relDiff}`);
+    }
+
+    ctx.destroy();
+  });
 });

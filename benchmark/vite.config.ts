@@ -74,6 +74,7 @@ function benchmarkReporterPlugin(): Plugin {
 
 export default defineConfig({
   base: './',
+  publicDir: resolve(import.meta.dirname, '../example/public'),
   plugins: [benchmarkReporterPlugin()],
   server: {
     port: 5178,
