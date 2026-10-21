@@ -20,6 +20,18 @@ struct Params {
 @group(0) @binding(3) var<storage, read> bias: array<f16>;
 @group(0) @binding(4) var<uniform> params: Params;
 
+// Geometry constants let every backend simplify division in the gather loop.
+override kernel_h: u32 = 0u;
+override kernel_w: u32 = 0u;
+
+// Zero preserves uniform-driven execution for callers using the raw template.
+fn kernel_height() -> u32 {
+  return select(params.KH, kernel_h, kernel_h != 0u);
+}
+fn kernel_width() -> u32 {
+  return select(params.KW, kernel_w, kernel_w != 0u);
+}
+
 // a_sub: 64 output channels x 16 K elements (4 vec4s) = 256 vec4s (2 KB)
 var<workgroup> a_sub: array<array<vec4<f16>, 4>, 64>;
 // b_sub: 16 K elements x 64 spatial elements (16 vec4s) = 256 vec4s (2 KB)
@@ -35,9 +47,9 @@ fn main(
   let tile_col0 = wg_id.x * 64u;
   let M = params.OC;
   let N = params.B * params.OH * params.OW;
-  let K = params.IC * params.KH * params.KW;
+  let K = params.IC * kernel_height() * kernel_width();
   let K_vecs = K >> 2u;
-  let khw = params.KH * params.KW;
+  let khw = kernel_height() * kernel_width();
   let ohw = params.OH * params.OW;
 
   let iH = i32(params.IH);
@@ -108,8 +120,8 @@ fn main(
     if (kk_idx < K) {
       let k_ic = kk_idx / khw;
       let rem = kk_idx % khw;
-      let kh = i32(rem / params.KW) * dH;
-      let kw = i32(rem % params.KW) * dW;
+      let kh = i32(rem / kernel_width()) * dH;
+      let kw = i32(rem % kernel_width()) * dW;
 
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
         if (col_valid[kk]) {
@@ -168,11 +180,9 @@ fn main(
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
         let n = out_c_base + kk;
         if (n < N) {
-          let b_val = n / ohw;
-          let sp = n % ohw;
-          let oh = sp / params.OW;
-          let ow = sp % params.OW;
-          out[((b_val * params.OC + m) * params.OH + oh) * params.OW + ow] = acc_v[kk];
+          // Reuse the batch decoded for input gathering instead of dividing again.
+          let out_base = col_b[kk] * (M - 1u) * ohw + n;
+          out[m * ohw + out_base] = acc_v[kk];
         }
       }
     }

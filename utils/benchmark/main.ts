@@ -355,17 +355,20 @@ async function run() {
 
   // 2. Batched Matrix Multiplication (BMM)
   const bmmConfigs = [
-    [4, 64, 64, 30],
-    [8, 128, 128, 20],
+    [4, 64, 64, 64, 30],
+    [8, 128, 128, 128, 20],
+    // Attention shapes taken directly from the YOLO graph.
+    [2, 400, 32, 400, 20],
+    [2, 64, 400, 400, 20],
   ] as const;
 
-  for (const [B, M, N, iters] of bmmConfigs) {
-    statusEl.innerText = `Benchmarking BMM [${B}, ${M}, ${N}]...`;
+  for (const [B, M, K, N, iters] of bmmConfigs) {
+    statusEl.innerText = `Benchmarking BMM [${B}, ${M}, ${K}] x [${B}, ${K}, ${N}]...`;
 
     // Baseline
     const baseCtx = new BaselineContext(device);
-    const ba = baseCtx.tensor('float32', [B, M, N]).setData(makeF32(B * M * N));
-    const bb = baseCtx.tensor('float32', [B, N, N]).setData(makeF32(B * N * N));
+    const ba = baseCtx.tensor('float32', [B, M, K]).setData(makeF32(B * M * K));
+    const bb = baseCtx.tensor('float32', [B, K, N]).setData(makeF32(B * K * N));
     const bout = baseCtx.tensor('float32', [B, M, N]);
     baseCtx.recordShader(baselineShaders.bmm, [ba, bb, bout]);
     const baseStats = await measureBatchedStatsMs(baseCtx, iters);
@@ -373,8 +376,8 @@ async function run() {
 
     // Optimized FP32
     const ctx32 = new WgpuExecutionContext(device);
-    const a32 = ctx32.tensor('float32', [B, M, N]).setData(makeF32(B * M * N));
-    const b32 = ctx32.tensor('float32', [B, N, N]).setData(makeF32(B * N * N));
+    const a32 = ctx32.tensor('float32', [B, M, K]).setData(makeF32(B * M * K));
+    const b32 = ctx32.tensor('float32', [B, K, N]).setData(makeF32(B * K * N));
     const out32 = ctx32.tensor('float32', [B, M, N]);
     ctx32.recordShader(shaders.bmm, [a32, b32, out32]);
     const fp32Stats = await measureBatchedStatsMs(ctx32, iters);
@@ -384,8 +387,8 @@ async function run() {
     let fp16Stats: Stats | null = null;
     if (hasF16) {
       const ctx16 = new WgpuExecutionContext(device);
-      const a16 = ctx16.tensor('float16', [B, M, N]).setData(makeF16(B * M * N));
-      const b16 = ctx16.tensor('float16', [B, N, N]).setData(makeF16(B * N * N));
+      const a16 = ctx16.tensor('float16', [B, M, K]).setData(makeF16(B * M * K));
+      const b16 = ctx16.tensor('float16', [B, K, N]).setData(makeF16(B * K * N));
       const out16 = ctx16.tensor('float16', [B, M, N]);
       ctx16.recordShader(shaders.bmm, [a16, b16, out16]);
       fp16Stats = await measureBatchedStatsMs(ctx16, iters);
@@ -402,7 +405,7 @@ async function run() {
     addRow({
       category: 'Linear Algebra',
       name: 'Batch MatMul (BMM)',
-      shape: `[${B}, ${M}, ${N}] * [${B}, ${N}, ${N}]`,
+      shape: `[${B}, ${M}, ${K}] * [${B}, ${K}, ${N}]`,
       baselineMs,
       baselineStd: baseStats.std,
       fp32Ms,
@@ -421,6 +424,39 @@ async function run() {
 
   // 3. Convolutions (Tile64 3x3, Pointwise 1x1, Depthwise, ConvWithClamp)
   const convConfigs = [
+    {
+      shader: shaders.convolution,
+      category: 'Convolution',
+      label: 'DepthART deep 3x3 reduction',
+      inShape: [1, 960, 14, 14],
+      wShape: [48, 960, 3, 3],
+      groups: 1,
+      stride: [1, 1],
+      pad: [1, 1],
+      iters: 10,
+    },
+    {
+      shader: shaders.convolution,
+      category: 'Convolution',
+      label: 'YOLO dense 3x3 (Tile32)',
+      inShape: [1, 32, 40, 40],
+      wShape: [32, 32, 3, 3],
+      groups: 1,
+      stride: [1, 1],
+      pad: [1, 1],
+      iters: 20,
+    },
+    {
+      shader: shaders.convolution,
+      category: 'Convolution',
+      label: 'YOLO dense 3x3 stride 2',
+      inShape: [1, 64, 80, 80],
+      wShape: [64, 64, 3, 3],
+      groups: 1,
+      stride: [2, 2],
+      pad: [1, 1],
+      iters: 20,
+    },
     {
       shader: shaders.convWithClamp,
       category: 'Convolution',
@@ -494,7 +530,12 @@ async function run() {
 
     const inNumel = c.inShape.reduce((a, b) => a * b, 1);
     const wNumel = c.wShape.reduce((a, b) => a * b, 1);
-    const outShape = [c.inShape[0], c.wShape[0], c.inShape[2], c.inShape[3]];
+    const outShape = [
+      c.inShape[0],
+      c.wShape[0],
+      Math.floor((c.inShape[2] + 2 * c.pad[0] - c.wShape[2]) / c.stride[0]) + 1,
+      Math.floor((c.inShape[3] + 2 * c.pad[1] - c.wShape[3]) / c.stride[1]) + 1,
+    ];
 
     // Baseline
     const baseCtx = new BaselineContext(device);

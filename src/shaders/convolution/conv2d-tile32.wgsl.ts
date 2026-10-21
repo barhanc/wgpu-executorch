@@ -18,6 +18,18 @@ struct Params {
 @group(0) @binding(3) var<storage, read> bias: array<f32>;
 @group(0) @binding(4) var<uniform> params: Params;
 
+// Geometry constants let every backend simplify division in the gather loop.
+override kernel_h: u32 = 0u;
+override kernel_w: u32 = 0u;
+
+// Zero preserves uniform-driven execution for callers using the raw template.
+fn kernel_height() -> u32 {
+  return select(params.KH, kernel_h, kernel_h != 0u);
+}
+fn kernel_width() -> u32 {
+  return select(params.KW, kernel_w, kernel_w != 0u);
+}
+
 // a_sub: 32 output channels x 16 K elements (4 vec4s) = 128 vec4s (2 KB)
 var<workgroup> a_sub: array<array<vec4<f32>, 4>, 32>;
 // b_sub: 16 K elements x 64 spatial elements (16 vec4s) = 256 vec4s (4 KB)
@@ -33,9 +45,9 @@ fn main(
   let tile_col0 = wg_id.x * 64u;
   let M = params.OC;
   let N = params.B * params.OH * params.OW;
-  let K = params.IC * params.KH * params.KW;
+  let K = params.IC * kernel_height() * kernel_width();
   let K_vecs = K >> 2u;
-  let khw = params.KH * params.KW;
+  let khw = kernel_height() * kernel_width();
   let ohw = params.OH * params.OW;
 
   let iH = i32(params.IH);
@@ -107,8 +119,8 @@ fn main(
     if (bk0 < K) {
       let ic0 = bk0 / khw;
       let rem0 = bk0 % khw;
-      let kh0 = i32(rem0 / params.KW) * dH;
-      let kw0 = i32(rem0 % params.KW) * dW;
+      let kh0 = i32(rem0 / kernel_width()) * dH;
+      let kw0 = i32(rem0 % kernel_width()) * dW;
 
       var b_vec0 = vec4<f32>(0.0);
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
@@ -131,8 +143,8 @@ fn main(
     if (bk1 < K) {
       let ic1 = bk1 / khw;
       let rem1 = bk1 % khw;
-      let kh1 = i32(rem1 / params.KW) * dH;
-      let kw1 = i32(rem1 % params.KW) * dW;
+      let kh1 = i32(rem1 / kernel_width()) * dH;
+      let kw1 = i32(rem1 % kernel_width()) * dW;
 
       var b_vec1 = vec4<f32>(0.0);
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
@@ -194,10 +206,12 @@ fn main(
   for (var kk = 0u; kk < 4u; kk = kk + 1u) {
     let out_c = out_c_base + kk;
     if (out_c < N) {
-      if (out_r0 + 0u < M) { out[(out_r0 + 0u) * N + out_c] = acc0[kk]; }
-      if (out_r0 + 1u < M) { out[(out_r0 + 1u) * N + out_c] = acc1[kk]; }
-      if (out_r0 + 2u < M) { out[(out_r0 + 2u) * N + out_c] = acc2[kk]; }
-      if (out_r0 + 3u < M) { out[(out_r0 + 3u) * N + out_c] = acc3[kk]; }
+      // Reuse the batch decoded for input gathering; output is NCHW.
+      let out_base = col_b0[kk] * (M - 1u) * ohw + out_c;
+      if (out_r0 + 0u < M) { out[(out_r0 + 0u) * ohw + out_base] = acc0[kk]; }
+      if (out_r0 + 1u < M) { out[(out_r0 + 1u) * ohw + out_base] = acc1[kk]; }
+      if (out_r0 + 2u < M) { out[(out_r0 + 2u) * ohw + out_base] = acc2[kk]; }
+      if (out_r0 + 3u < M) { out[(out_r0 + 3u) * ohw + out_base] = acc3[kk]; }
     }
   }
 }

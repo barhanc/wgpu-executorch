@@ -278,12 +278,14 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
     // 32x64 register-tiled GEMM for general dense convolution with clamp
     workgroupCountX = Math.ceil((n * expectedHout * expectedWout) / 64);
     workgroupCountY = Math.ceil(oc / 32);
-    constants = {};
+    // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
+    constants = { kernel_h: kh, kernel_w: kw };
   } else if (isDenseTile64) {
     // 64x64 register-tiled GEMM for general dense convolution with clamp
     workgroupCountX = Math.ceil((n * expectedHout * expectedWout) / 64);
     workgroupCountY = Math.ceil(oc / 64);
-    constants = {};
+    // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
+    constants = { kernel_h: kh, kernel_w: kw };
   } else {
     // GEMM kernel: fixed 8x8 workgroup covering a 32x32 output tile;
     // grid over (N = batch*H_out*W_out cols, M = OC rows)

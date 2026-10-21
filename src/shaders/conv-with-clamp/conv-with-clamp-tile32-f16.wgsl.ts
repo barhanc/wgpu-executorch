@@ -41,6 +41,18 @@ struct Params {
 }
 @group(0) @binding(4) var<uniform> params: Params;
 
+// Geometry constants let every backend simplify division in the gather loop.
+override kernel_h: u32 = 0u;
+override kernel_w: u32 = 0u;
+
+// Zero preserves uniform-driven execution for callers using the raw template.
+fn kernel_height() -> u32 {
+  return select(params.Kh, kernel_h, kernel_h != 0u);
+}
+fn kernel_width() -> u32 {
+  return select(params.Kw, kernel_w, kernel_w != 0u);
+}
+
 var<workgroup> a_sub: array<array<vec4<f16>, 4>, 32>;
 var<workgroup> b_sub: array<array<vec4<f16>, 16>, 16>;
 
@@ -54,9 +66,9 @@ fn main(
   let tile_col0 = wg_id.x * 64u;
   let M = params.OC;
   let N = params.N * params.H_out * params.W_out;
-  let K = params.IC * params.Kh * params.Kw;
+  let K = params.IC * kernel_height() * kernel_width();
   let K_vecs = K >> 2u;
-  let khw = params.Kh * params.Kw;
+  let khw = kernel_height() * kernel_width();
   let ohw = params.H_out * params.W_out;
 
   let in_hw = params.H_in * params.W_in;
@@ -123,8 +135,8 @@ fn main(
     if (bk0 < K) {
       let ic0 = bk0 / khw;
       let rem0 = bk0 % khw;
-      let kh0 = i32(rem0 / params.Kw) * dH;
-      let kw0 = i32(rem0 % params.Kw) * dW;
+      let kh0 = i32(rem0 / kernel_width()) * dH;
+      let kw0 = i32(rem0 % kernel_width()) * dW;
 
       var b_row0 = vec4<f16>(0.0h);
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
@@ -146,8 +158,8 @@ fn main(
     if (bk1 < K) {
       let ic1 = bk1 / khw;
       let rem1 = bk1 % khw;
-      let kh1 = i32(rem1 / params.Kw) * dH;
-      let kw1 = i32(rem1 % params.Kw) * dW;
+      let kh1 = i32(rem1 / kernel_width()) * dH;
+      let kw1 = i32(rem1 % kernel_width()) * dW;
 
       var b_row1 = vec4<f16>(0.0h);
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
@@ -210,12 +222,10 @@ fn main(
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
         let n = out_c_base + kk;
         if (n < N) {
-          let b_val = n / ohw;
-          let sp = n % ohw;
-          let oh = sp / params.W_out;
-          let ow = sp % params.W_out;
+          // Reuse the batch decoded for input gathering instead of dividing again.
+          let out_base = col_b0[kk] * (M - 1u) * ohw + n;
           let val = clamp(acc_v[kk], min_v, max_v);
-          t_out[((b_val * params.OC + m) * params.H_out + oh) * params.W_out + ow] = val;
+          t_out[m * ohw + out_base] = val;
         }
       }
     }
