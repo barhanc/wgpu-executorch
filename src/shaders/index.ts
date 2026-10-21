@@ -14,14 +14,11 @@ import { softmax } from './softmax';
 
 // Convolutions & pooling
 import { convWithClamp } from './conv-with-clamp';
-import { convWithClampHwc4 } from './conv-with-clamp-hwc4';
 import { convolution } from './convolution';
-import { convolutionHwc4 } from './convolution-hwc4';
 import { maxPool2d } from './max-pool-2d';
 
 // Resampling
 import { upsampleBilinear2d } from './upsample-bilinear2d';
-import { upsampleBilinear2dHwc4 } from './upsample-bilinear2d-hwc4';
 import { upsampleNearest2d } from './upsample-nearest-2d';
 
 // Shape & data movement
@@ -32,8 +29,6 @@ import { permuteCopy } from './permute';
 import { prepack } from './prepack';
 import { splitWithSizesCopy } from './split-with-sizes';
 import { squeezeCopy } from './squeeze-copy';
-import { toChw } from './to-chw';
-import { toHwc4 } from './to-hwc4';
 import { unsqueezeCopy } from './unsqueeze-copy';
 import { viewCopy } from './view-copy';
 
@@ -48,13 +43,11 @@ export const shaders = {
   mm, bmm, meanDim, softmax,
   // Convolutions & pooling
   convolution, convWithClamp, maxPool2d,
-  convolutionHwc4, convWithClampHwc4,
   // Resampling
-  upsampleBilinear2d, upsampleBilinear2dHwc4, upsampleNearest2d,
+  upsampleBilinear2d, upsampleNearest2d,
   // Shape & data movement
   cat, constantPadNd, splitWithSizesCopy, permuteCopy, viewCopy,
   clone, squeezeCopy, unsqueezeCopy, prepack,
-  toHwc4, toChw,
 } as const;
 
 /**
