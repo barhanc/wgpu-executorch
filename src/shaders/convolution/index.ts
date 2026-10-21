@@ -173,9 +173,9 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
     dH === 1 &&
     dW === 1;
   const is1x1Vec4 = is1x1 && ic % 4 === 0 && (oh * ow) % 4 === 0 && oc % 4 === 0;
-  const is1x1Tile64 = is1x1Vec4 && b === 1 && oc >= 64 && oh * ow >= 64 && ic >= 16;
+  const is1x1Tile64 = is1x1Vec4 && b === 1 && oc >= 16 && oh * ow >= 64 && ic >= 16;
   const isDenseTile64 =
-    !transposed && groups === 1 && oc >= 64 && b * oh * ow >= 64 && (ic * kh * kw) % 4 === 0;
+    !transposed && groups === 1 && oc >= 16 && b * oh * ow >= 64 && (ic * kh * kw) % 4 === 0;
 
   const isDepthwise =
     !transposed &&
@@ -210,9 +210,9 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
   let constants: Record<string, number>;
 
   if (isDepthwise) {
-    // Spatial 16x16 workgroup per (batch, oc) channel slice
-    workgroupCountX = Math.ceil(ow / 16);
-    workgroupCountY = Math.ceil(oh / 16);
+    // Spatial 16x16 workgroup per (batch, oc) channel slice with 2x2 register tiling (32x32 per workgroup)
+    workgroupCountX = Math.ceil(ow / 32);
+    workgroupCountY = Math.ceil(oh / 32);
     workgroupCountZ = b * oc;
     constants = {};
   } else if (transposed || groups !== 1) {

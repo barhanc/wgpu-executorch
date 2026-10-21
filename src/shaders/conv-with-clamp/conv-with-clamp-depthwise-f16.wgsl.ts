@@ -1,6 +1,7 @@
 /**
- * WGSL compute shader for float16 fused depthwise convolution with clamp bounds (up to 7x7 kernels).
- * Uses 2D spatial workgroup layout (16x16) and workgroup-shared cached weights and bias.
+ * WGSL compute shader for float16 depthwise convolution with clamp bounds (up to 7x7 kernels).
+ * Uses 2D spatial workgroup layout (16x16) with 2x2 register tiling per thread (32x32 per workgroup).
+ * Weights and bias are cached in shared memory then private registers to avoid bank conflicts.
  * Requires WebGPU shader-f16 feature.
  *
  * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
@@ -68,35 +69,95 @@ fn main(
   }
   workgroupBarrier();
 
-  let ow = gid.x;
-  let oh = gid.y;
+  let ow0 = gid.x * 2u;
+  let oh0 = gid.y * 2u;
 
-  if (ow >= params.W_out || oh >= params.H_out || b >= params.N) {
+  if (ow0 >= params.W_out || oh0 >= params.H_out || b >= params.N) {
     return;
   }
 
-  var acc = bias_val;
-  let ih0 = i32(oh) * i32(params.stride_h) - i32(params.pad_h);
-  let iw0 = i32(ow) * i32(params.stride_w) - i32(params.pad_w);
+  var acc00 = bias_val;
+  var acc01 = bias_val;
+  var acc10 = bias_val;
+  var acc11 = bias_val;
+
+  let sH = i32(params.stride_h);
+  let sW = i32(params.stride_w);
+  let dH = i32(params.dil_h);
+  let dW = i32(params.dil_w);
   let iH = i32(params.H_in);
   let iW = i32(params.W_in);
+
+  let ih0_base = i32(oh0) * sH - i32(params.pad_h);
+  let iw0_base = i32(ow0) * sW - i32(params.pad_w);
   let in_base = (b * params.IC + oc) * params.H_in;
 
-  for (var kh: u32 = 0u; kh < params.Kh; kh = kh + 1u) {
-    let ih = ih0 + i32(kh) * i32(params.dil_h);
-    if (ih >= 0 && ih < iH) {
-      let row_offset = (in_base + u32(ih)) * params.W_in;
-      let w_offset = kh * params.Kw;
-      for (var kw: u32 = 0u; kw < params.Kw; kw = kw + 1u) {
-        let iw = iw0 + i32(kw) * i32(params.dil_w);
-        if (iw >= 0 && iw < iW) {
-          acc = acc + t_x[row_offset + u32(iw)] * w_tile[w_offset + kw];
+  var w_reg: array<f16, 49>;
+  for (var i = 0u; i < khw; i = i + 1u) {
+    w_reg[i] = w_tile[i];
+  }
+
+  for (var kh = 0u; kh < params.Kh; kh = kh + 1u) {
+    let ih0 = ih0_base + i32(kh) * dH;
+    let ih1 = ih0 + sH;
+    let valid_h0 = ih0 >= 0 && ih0 < iH;
+    let valid_h1 = ih1 >= 0 && ih1 < iH;
+
+    var row_offset0: u32 = 0u;
+    if (valid_h0) {
+      row_offset0 = (in_base + u32(ih0)) * params.W_in;
+    }
+    var row_offset1: u32 = 0u;
+    if (valid_h1) {
+      row_offset1 = (in_base + u32(ih1)) * params.W_in;
+    }
+    let w_offset = kh * params.Kw;
+
+    for (var kw = 0u; kw < params.Kw; kw = kw + 1u) {
+      let iw0 = iw0_base + i32(kw) * dW;
+      let iw1 = iw0 + sW;
+      let valid_w0 = iw0 >= 0 && iw0 < iW;
+      let valid_w1 = iw1 >= 0 && iw1 < iW;
+      let w_val = w_reg[w_offset + kw];
+
+      if (valid_h0) {
+        if (valid_w0) {
+          acc00 = acc00 + t_x[row_offset0 + u32(iw0)] * w_val;
+        }
+        if (valid_w1) {
+          acc01 = acc01 + t_x[row_offset0 + u32(iw1)] * w_val;
+        }
+      }
+      if (valid_h1) {
+        if (valid_w0) {
+          acc10 = acc10 + t_x[row_offset1 + u32(iw0)] * w_val;
+        }
+        if (valid_w1) {
+          acc11 = acc11 + t_x[row_offset1 + u32(iw1)] * w_val;
         }
       }
     }
   }
 
-  let out_idx = ((b * params.OC + oc) * params.H_out + oh) * params.W_out + ow;
-  t_out[out_idx] = clamp(acc, f16(params.output_min), f16(params.output_max));
+  let min_clamp = f16(params.output_min);
+  let max_clamp = f16(params.output_max);
+  acc00 = clamp(acc00, min_clamp, max_clamp);
+  acc01 = clamp(acc01, min_clamp, max_clamp);
+  acc10 = clamp(acc10, min_clamp, max_clamp);
+  acc11 = clamp(acc11, min_clamp, max_clamp);
+
+  let out_ch_base = (b * params.OC + oc) * params.H_out;
+  let out_row0 = (out_ch_base + oh0) * params.W_out;
+  t_out[out_row0 + ow0] = acc00;
+  if (ow0 + 1u < params.W_out) {
+    t_out[out_row0 + ow0 + 1u] = acc01;
+  }
+  if (oh0 + 1u < params.H_out) {
+    let out_row1 = (out_ch_base + oh0 + 1u) * params.W_out;
+    t_out[out_row1 + ow0] = acc10;
+    if (ow0 + 1u < params.W_out) {
+      t_out[out_row1 + ow0 + 1u] = acc11;
+    }
+  }
 }
 `;
