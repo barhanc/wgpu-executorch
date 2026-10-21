@@ -208,3 +208,175 @@ export const drawDepth: Shader<[Tensor, GPUBuffer, GPUTexture]> = {
     });
   },
 };
+
+/**
+ * Preprocess compute shader for FP16: reads normalized [0, 1] RGB texels from
+ * the video texture and writes ImageNet-normalized planar NCHW f16 elements.
+ */
+export const preprocessF16: Shader<[GPUTexture, Tensor]> = {
+  name: 'depth.preprocess.f16',
+  code: /* wgsl */ `
+    enable f16;
+
+    @group(0) @binding(0) var vid_tex: texture_2d<f32>;
+    @group(0) @binding(1) var<storage, read_write> output: array<f16>;
+
+    @compute @workgroup_size(16, 16)
+    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+      let dims = textureDimensions(vid_tex);
+      if (gid.x >= dims.x || gid.y >= dims.y) {
+        return;
+      }
+
+      // Convert interleaved RGBA texel to planar NCHW channels
+      let pixel = textureLoad(vid_tex, vec2<i32>(gid.xy), 0);
+      let hw = dims.x * dims.y;
+      let offset = gid.y * dims.x + gid.x;
+
+      output[offset] = f16((pixel.r - 0.485) / 0.229);
+      output[hw + offset] = f16((pixel.g - 0.456) / 0.224);
+      output[2u * hw + offset] = f16((pixel.b - 0.406) / 0.225);
+    }
+  `,
+  recordIn(ctx, [vidTexture, inp]) {
+    const bundle = createComputeBundle(ctx.device, preprocessF16.code as string, [
+      { binding: 0, resource: vidTexture.createView() },
+      { binding: 1, buffer: inp.buffer },
+    ]);
+
+    ctx.addDispatch({
+      pipeline: bundle.pipeline,
+      bindGroup: bundle.bindGroup,
+      workgroupCountX: Math.ceil(vidTexture.width / 16),
+      workgroupCountY: Math.ceil(vidTexture.height / 16),
+    });
+  },
+};
+
+/**
+ * Stats compute shader for FP16: min/max reduction over the FP16 depth map.
+ */
+export const depthStatsF16: Shader<[Tensor, GPUBuffer]> = {
+  name: 'depth.stats.f16',
+  code: /* wgsl */ `
+    enable f16;
+
+    @group(0) @binding(0) var<storage, read> depth: array<f16>;
+    @group(0) @binding(1) var<storage, read_write> stats: array<atomic<u32>>;
+
+    override wg_size: u32 = 256;
+
+    var<workgroup> tile_min: array<u32, wg_size>;
+    var<workgroup> tile_max: array<u32, wg_size>;
+
+    // Total-order float keys: larger key <=> larger value
+    fn key(v: f32) -> u32 {
+      let bits = bitcast<u32>(v);
+      return select(bits ^ 0x80000000u, ~bits, (bits & 0x80000000u) != 0u);
+    }
+
+    @compute @workgroup_size(wg_size)
+    fn main(
+      @builtin(global_invocation_id) gid: vec3<u32>,
+      @builtin(local_invocation_id) lid: vec3<u32>,
+      @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+      let idx = gid.x + gid.y * (num_workgroups.x * wg_size);
+      var k_min = 0xffffffffu;
+      var k_max = 0x00000000u;
+      if (idx < arrayLength(&depth)) {
+        let k = key(f32(depth[idx]));
+        k_min = k;
+        k_max = k;
+      }
+
+      tile_min[lid.x] = k_min;
+      tile_max[lid.x] = k_max;
+      workgroupBarrier();
+
+      for (var stride = wg_size / 2u; stride > 0u; stride = stride / 2u) {
+        if (lid.x < stride) {
+          tile_min[lid.x] = min(tile_min[lid.x], tile_min[lid.x + stride]);
+          tile_max[lid.x] = max(tile_max[lid.x], tile_max[lid.x + stride]);
+        }
+        workgroupBarrier();
+      }
+
+      if (lid.x == 0u) {
+        atomicMin(&stats[0], tile_min[0]);
+        atomicMax(&stats[1], tile_max[0]);
+      }
+    }
+  `,
+  recordIn(ctx, [out, statsBuffer]) {
+    const wgSize = 256;
+    const totalWorkgroups = Math.ceil(out.numel / wgSize);
+
+    const bundle = createComputeBundle(
+      ctx.device,
+      depthStatsF16.code as string,
+      [
+        { binding: 0, buffer: out.buffer },
+        { binding: 1, buffer: statsBuffer },
+      ],
+      // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
+      { wg_size: wgSize }
+    );
+
+    ctx.addDispatch({
+      pipeline: bundle.pipeline,
+      bindGroup: bundle.bindGroup,
+      workgroupCountX: Math.min(totalWorkgroups, 65535),
+      workgroupCountY: Math.ceil(totalWorkgroups / 65535),
+    });
+  },
+};
+
+/**
+ * Draw compute shader for FP16: normalizes the FP16 depth map with min/max and renders grayscale.
+ */
+export const drawDepthF16: Shader<[Tensor, GPUBuffer, GPUTexture]> = {
+  name: 'depth.draw.f16',
+  code: /* wgsl */ `
+    enable f16;
+
+    @group(0) @binding(0) var<storage, read> depth: array<f16>;
+    @group(0) @binding(1) var<storage, read> stats: array<u32>;
+    @group(0) @binding(2) var res_tex: texture_storage_2d<rgba8unorm, write>;
+
+    // Inverse of the total-order key mapping in depth.stats
+    fn unkey(k: u32) -> f32 {
+      let bits = select(k ^ 0x80000000u, ~k, (k & 0x80000000u) == 0u);
+      return bitcast<f32>(bits);
+    }
+
+    @compute @workgroup_size(16, 16)
+    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+      let dims = textureDimensions(res_tex);
+      if (gid.x >= dims.x || gid.y >= dims.y) {
+        return;
+      }
+
+      let lo = unkey(stats[0]);
+      let hi = unkey(stats[1]);
+      let offset = gid.y * dims.x + gid.x;
+      let t = clamp((f32(depth[offset]) - lo) / max(hi - lo, 1e-6), 0.0, 1.0);
+
+      let gray = 1.0 - t;
+      textureStore(res_tex, vec2<i32>(gid.xy), vec4<f32>(gray, gray, gray, 1.0));
+    }
+  `,
+  recordIn(ctx, [out, statsBuffer, resTexture]) {
+    const bundle = createComputeBundle(ctx.device, drawDepthF16.code as string, [
+      { binding: 0, buffer: out.buffer },
+      { binding: 1, buffer: statsBuffer },
+      { binding: 2, resource: resTexture.createView() },
+    ]);
+
+    ctx.addDispatch({
+      pipeline: bundle.pipeline,
+      bindGroup: bundle.bindGroup,
+      workgroupCountX: Math.ceil(resTexture.width / 16),
+      workgroupCountY: Math.ceil(resTexture.height / 16),
+    });
+  },
+};

@@ -354,3 +354,43 @@ main {
   background: rgba(240, 246, 252, 0.1);
   border-color: var(--text);
 }
+
+.precision-control {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.precision-label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.precision-select {
+  padding: 0.45rem 0.85rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.precision-select:hover,
+.precision-select:focus {
+  border-color: var(--text);
+}
+
+.precision-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
