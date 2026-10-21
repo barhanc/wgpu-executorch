@@ -1,10 +1,6 @@
 /**
- * WGSL compute shader for 64x64 register-tiled 2D convolution GEMM.
- *
- * Evaluates dense convolution out = conv2d(input, weight, bias) using 2D register tiling
- * (8x8 elements per thread across 64 threads per workgroup).
- * Each workgroup computes a 64x64 output block (64 output channels x 64 spatial elements)
- * over K = IC * KH * KW, reading weight in 128-bit vec4 transactions.
+ * WGSL compute shader for 64x64 register-tiled 2D convolution GEMM (4x4 per thread across 256 threads).
+ * High occupancy, coalesced 128-bit memory transactions, minimal register pressure for all GPUs.
  *
  * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
  * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
@@ -22,12 +18,12 @@ struct Params {
 @group(0) @binding(3) var<storage, read> bias: array<f32>;
 @group(0) @binding(4) var<uniform> params: Params;
 
-// a_sub: 64 output channels x 16 K-elements (4 vec4s)
+// a_sub: 64 output channels x 16 K elements (4 vec4s) = 256 vec4s (4 KB)
 var<workgroup> a_sub: array<array<vec4<f32>, 4>, 64>;
-// b_sub: 16 K-elements x 64 spatial elements (16 vec4s)
+// b_sub: 16 K elements x 64 spatial elements (16 vec4s) = 256 vec4s (4 KB)
 var<workgroup> b_sub: array<array<vec4<f32>, 16>, 16>;
 
-@compute @workgroup_size(8, 8, 1)
+@compute @workgroup_size(16, 16, 1)
 fn main(
   @builtin(workgroup_id) wg_id: vec3<u32>,
   @builtin(local_invocation_id) local_id: vec3<u32>,
@@ -38,7 +34,7 @@ fn main(
   let M = params.OC;
   let N = params.B * params.OH * params.OW;
   let K = params.IC * params.KH * params.KW;
-  let K_vecs = K / 4u;
+  let K_vecs = K >> 2u;
   let khw = params.KH * params.KW;
   let ohw = params.OH * params.OW;
 
@@ -53,129 +49,109 @@ fn main(
   let dH = i32(params.dH);
   let dW = i32(params.dW);
 
-  var acc0: array<vec4<f32>, 8>;
-  var acc1: array<vec4<f32>, 8>;
-  for (var i = 0u; i < 8u; i = i + 1u) {
-    acc0[i] = vec4<f32>(0.0);
-    acc1[i] = vec4<f32>(0.0);
-  }
+  var acc0 = vec4<f32>(0.0);
+  var acc1 = vec4<f32>(0.0);
+  var acc2 = vec4<f32>(0.0);
+  var acc3 = vec4<f32>(0.0);
 
-  let num_tiles = (K + 15u) / 16u;
+  // Cooperative load coordinates for 256 threads (1 vec4 weight + 1 vec4 input per thread)
+  let a_r = tid >> 2u;      // 0..63
+  let a_c = tid & 3u;       // 0..3
+  let a_m = tile_row0 + a_r;
+  let a_valid = a_m < M;
+
+  let b_r = tid >> 4u;      // 0..15 (row in K tile)
+  let b_c4 = tid & 15u;     // 0..15 (col in spatial tile)
+  let n_base = tile_col0 + (b_c4 << 2u);
+
+  let num_tiles = (K + 15u) >> 4u;
   for (var t = 0u; t < num_tiles; t = t + 1u) {
-    let k_start = t * 16u;
-    let k4_start = t * 4u;
+    let k_start = t << 4u;
+    let k4_start = t << 2u;
 
-    // 1. Load a_sub (weights): each thread tid (0..63) loads row tid (4 vec4s)
-    let a_m = tile_row0 + tid;
-    let a_valid = a_m < M;
-    let a_base = a_m * K_vecs + k4_start;
-    for (var col = 0u; col < 4u; col = col + 1u) {
-      if (a_valid && (k4_start + col) < K_vecs) {
-        a_sub[tid][col] = weight[a_base + col];
-      } else {
-        a_sub[tid][col] = vec4<f32>(0.0);
-      }
+    // 1. Coalesced 128-bit load of weights (256 threads load 256 vec4s)
+    if (a_valid && (k4_start + a_c) < K_vecs) {
+      a_sub[a_r][a_c] = weight[a_m * K_vecs + k4_start + a_c];
+    } else {
+      a_sub[a_r][a_c] = vec4<f32>(0.0);
     }
 
-    // 2. Load b_sub (implicit im2col input): 16 rows x 16 vec4s = 256 vec4s total
-    // 64 threads -> 4 vec4s per thread
-    let b_vec_idx = tid << 2u;
-    for (var i = 0u; i < 4u; i = i + 1u) {
-      let flat_idx = b_vec_idx + i;
-      let b_r = flat_idx >> 4u;
-      let b_c4 = flat_idx & 15u;
-      let kk_idx = k_start + b_r;
-      let n_base = tile_col0 + (b_c4 << 2u);
+    // 2. Coalesced load of input (256 threads load 256 vec4s)
+    let kk_idx = k_start + b_r;
+    var b_row = vec4<f32>(0.0);
+    if (kk_idx < K) {
+      let k_ic = kk_idx / khw;
+      let rem = kk_idx % khw;
+      let kh = i32(rem / params.KW) * dH;
+      let kw = i32(rem % params.KW) * dW;
 
-      var b_row = vec4<f32>(0.0);
-      if (kk_idx < K) {
-        let k_ic = kk_idx / khw;
-        let rem = kk_idx % khw;
-        let kh = i32(rem / params.KW) * dH;
-        let kw = i32(rem % params.KW) * dW;
-
-        for (var kk = 0u; kk < 4u; kk = kk + 1u) {
-          let n = n_base + kk;
-          if (n < N) {
-            let b_val = n / ohw;
-            let sp = n % ohw;
-            let oh = sp / params.OW;
-            let ow = sp % params.OW;
-            let ih = i32(oh) * sH - pH + kh;
-            let iw = i32(ow) * sW - pW + kw;
-            if (ih >= 0 && ih < iH && iw >= 0 && iw < iW) {
-              let ch_idx = b_val * params.IC + k_ic;
-              b_row[kk] = input[ch_idx * in_hw + u32(ih) * in_w + u32(iw)];
-            }
+      for (var kk = 0u; kk < 4u; kk = kk + 1u) {
+        let n = n_base + kk;
+        if (n < N) {
+          let b_val = n / ohw;
+          let sp = n % ohw;
+          let oh = sp / params.OW;
+          let ow = sp % params.OW;
+          let ih = i32(oh) * sH - pH + kh;
+          let iw = i32(ow) * sW - pW + kw;
+          if (ih >= 0 && ih < iH && iw >= 0 && iw < iW) {
+            let ch_idx = b_val * params.IC + k_ic;
+            b_row[kk] = input[ch_idx * in_hw + u32(ih) * in_w + u32(iw)];
           }
         }
       }
-      b_sub[b_r][b_c4] = b_row;
     }
-
+    b_sub[b_r][b_c4] = b_row;
     workgroupBarrier();
 
-    // 3. Compute phase: 8x8 register accumulation per thread
-    let thread_row = local_id.y * 8u;
-    let thread_col4 = local_id.x * 2u;
+    // 3. Compute phase: 4x4 register accumulation per thread
+    let thread_r = local_id.y << 2u;
+    let thread_c4 = local_id.x;
 
     for (var k4 = 0u; k4 < 4u; k4 = k4 + 1u) {
-      let b0_0 = b_sub[k4 * 4u + 0u][thread_col4];
-      let b0_1 = b_sub[k4 * 4u + 0u][thread_col4 + 1u];
+      let b0 = b_sub[k4 * 4u + 0u][thread_c4];
+      let b1 = b_sub[k4 * 4u + 1u][thread_c4];
+      let b2 = b_sub[k4 * 4u + 2u][thread_c4];
+      let b3 = b_sub[k4 * 4u + 3u][thread_c4];
 
-      let b1_0 = b_sub[k4 * 4u + 1u][thread_col4];
-      let b1_1 = b_sub[k4 * 4u + 1u][thread_col4 + 1u];
+      let a0 = a_sub[thread_r + 0u][k4];
+      let a1 = a_sub[thread_r + 1u][k4];
+      let a2 = a_sub[thread_r + 2u][k4];
+      let a3 = a_sub[thread_r + 3u][k4];
 
-      let b2_0 = b_sub[k4 * 4u + 2u][thread_col4];
-      let b2_1 = b_sub[k4 * 4u + 2u][thread_col4 + 1u];
-
-      let b3_0 = b_sub[k4 * 4u + 3u][thread_col4];
-      let b3_1 = b_sub[k4 * 4u + 3u][thread_col4 + 1u];
-
-      for (var ir = 0u; ir < 8u; ir = ir + 1u) {
-        let ac = a_sub[thread_row + ir][k4];
-        acc0[ir] = acc0[ir] + b0_0 * ac.x + b1_0 * ac.y + b2_0 * ac.z + b3_0 * ac.w;
-        acc1[ir] = acc1[ir] + b0_1 * ac.x + b1_1 * ac.y + b2_1 * ac.z + b3_1 * ac.w;
-      }
+      acc0 = acc0 + b0 * a0.x + b1 * a0.y + b2 * a0.z + b3 * a0.w;
+      acc1 = acc1 + b0 * a1.x + b1 * a1.y + b2 * a1.z + b3 * a1.w;
+      acc2 = acc2 + b0 * a2.x + b1 * a2.y + b2 * a2.z + b3 * a2.w;
+      acc3 = acc3 + b0 * a3.x + b1 * a3.y + b2 * a3.z + b3 * a3.w;
     }
-
     workgroupBarrier();
   }
 
-  // 4. Write output with optional bias
-  let thread_row = local_id.y * 8u;
-  let thread_col4 = local_id.x * 2u;
-  for (var ir = 0u; ir < 8u; ir = ir + 1u) {
-    let m = tile_row0 + thread_row + ir;
+  // 4. Output write: 4 rows x 4 cols per thread
+  let thread_r = local_id.y << 2u;
+  let out_c_base = tile_col0 + (local_id.x << 2u);
+
+  for (var ir = 0u; ir < 4u; ir = ir + 1u) {
+    let m = tile_row0 + thread_r + ir;
     if (m < M) {
-      var b_val = 0.0;
+      var bias_val = 0.0;
       if (params.has_bias != 0u) {
-        b_val = bias[m];
+        bias_val = bias[m];
       }
-      let v0 = acc0[ir] + vec4<f32>(b_val);
-      let v1 = acc1[ir] + vec4<f32>(b_val);
+      var acc_v = acc0;
+      if (ir == 1u) { acc_v = acc1; }
+      else if (ir == 2u) { acc_v = acc2; }
+      else if (ir == 3u) { acc_v = acc3; }
+      acc_v = acc_v + vec4<f32>(bias_val);
 
-      let n_base0 = tile_col0 + thread_col4 * 4u;
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
-        let n = n_base0 + kk;
+        let n = out_c_base + kk;
         if (n < N) {
           let b_val = n / ohw;
           let sp = n % ohw;
           let oh = sp / params.OW;
           let ow = sp % params.OW;
-          out[((b_val * params.OC + m) * params.OH + oh) * params.OW + ow] = v0[kk];
-        }
-      }
-
-      let n_base1 = n_base0 + 4u;
-      for (var kk = 0u; kk < 4u; kk = kk + 1u) {
-        let n = n_base1 + kk;
-        if (n < N) {
-          let b_val = n / ohw;
-          let sp = n % ohw;
-          let oh = sp / params.OW;
-          let ow = sp % params.OW;
-          out[((b_val * params.OC + m) * params.OH + oh) * params.OW + ow] = v1[kk];
+          out[((b_val * params.OC + m) * params.OH + oh) * params.OW + ow] = acc_v[kk];
         }
       }
     }

@@ -10,211 +10,211 @@
       "category": "End-to-End Model",
       "name": "DepthART Monocular Depth",
       "shape": "[1,3,448,448] → [1,1,448,448]",
-      "baselineMs": 38.07499998807907,
-      "fp32Ms": 21.150000005960464,
-      "fp16Ms": 22,
-      "speedupFp32": "1.80x",
-      "speedupFp16": "1.73x"
+      "baselineMs": 41.650000005960464,
+      "fp32Ms": 17.775000005960464,
+      "fp16Ms": 15.474999994039536,
+      "speedupFp32": "2.34x",
+      "speedupFp16": "2.69x"
     },
     {
       "category": "End-to-End Model",
       "name": "YOLO26-N Object Detection",
       "shape": "[1,3,640,640] → [1,84,8400]",
-      "baselineMs": 25.349999994039536,
-      "fp32Ms": 21.224999994039536,
-      "fp16Ms": 18.05000001192093,
-      "speedupFp32": "1.19x",
-      "speedupFp16": "1.40x"
+      "baselineMs": 19.900000005960464,
+      "fp32Ms": 12.175000011920929,
+      "fp16Ms": 10.050000011920929,
+      "speedupFp32": "1.63x",
+      "speedupFp16": "1.98x"
     },
     {
       "category": "End-to-End Model",
       "name": "Selfie Segmentation",
       "shape": "[1,3,256,256] → [1,1,256,256]",
-      "baselineMs": 2.359999990463257,
-      "fp32Ms": 2.9,
-      "fp16Ms": 1.859999990463257,
-      "speedupFp32": "0.81x",
-      "speedupFp16": "1.27x"
+      "baselineMs": 2.3200000047683718,
+      "fp32Ms": 1.5799999952316284,
+      "fp16Ms": 1.6799999952316285,
+      "speedupFp32": "1.47x",
+      "speedupFp16": "1.38x"
     },
     {
       "category": "Linear Algebra",
       "name": "MatMul (MM Vec4)",
       "shape": "[256, 256] * [256, 256]",
-      "baselineMs": 0.27199999809265135,
-      "fp32Ms": 0.18799999713897705,
-      "fp16Ms": 0.23599999904632568,
-      "speedupFp32": "1.45x",
-      "speedupFp16": "1.15x"
+      "baselineMs": 0.2159999990463257,
+      "fp32Ms": 0.13199999809265137,
+      "fp16Ms": 0.16,
+      "speedupFp32": "1.64x",
+      "speedupFp16": "1.35x"
     },
     {
       "category": "Linear Algebra",
       "name": "MatMul (MM Vec4)",
       "shape": "[512, 512] * [512, 512]",
-      "baselineMs": 0.4899999976158142,
-      "fp32Ms": 0.3849999964237213,
-      "fp16Ms": 0.4050000011920929,
-      "speedupFp32": "1.27x",
-      "speedupFp16": "1.21x"
+      "baselineMs": 0.25,
+      "fp32Ms": 0.2550000011920929,
+      "fp16Ms": 0.20500000119209288,
+      "speedupFp32": "0.98x",
+      "speedupFp16": "1.22x"
     },
     {
       "category": "Linear Algebra",
       "name": "MatMul (MM 64x64)",
       "shape": "[1024, 1024] * [1024, 1024]",
-      "baselineMs": 1.6533333301544189,
-      "fp32Ms": 2.5,
-      "fp16Ms": 1.8866666634877522,
-      "speedupFp32": "0.66x",
-      "speedupFp16": "0.88x"
+      "baselineMs": 1.4733333349227906,
+      "fp32Ms": 1.3800000031789144,
+      "fp16Ms": 0.9599999984105428,
+      "speedupFp32": "1.07x",
+      "speedupFp16": "1.53x"
     },
     {
       "category": "Linear Algebra",
       "name": "MatMul (MM 64x64)",
       "shape": "[2048, 2048] * [2048, 2048]",
-      "baselineMs": 11.900000005960464,
-      "fp32Ms": 18.049999997019768,
-      "fp16Ms": 13.950000002980232,
-      "speedupFp32": "0.66x",
-      "speedupFp16": "0.85x"
+      "baselineMs": 10.712500005960464,
+      "fp32Ms": 9.637500002980232,
+      "fp16Ms": 5.987499997019768,
+      "speedupFp32": "1.11x",
+      "speedupFp16": "1.79x"
     },
     {
       "category": "Linear Algebra",
       "name": "Batch MatMul (BMM)",
       "shape": "[4, 64, 64] * [4, 64, 64]",
-      "baselineMs": 0.1799999992052714,
-      "fp32Ms": 0.30666666428248085,
-      "fp16Ms": 0.19333333571751912,
-      "speedupFp32": "0.59x",
-      "speedupFp16": "0.93x"
+      "baselineMs": 0.16666666666666666,
+      "fp32Ms": 0.15,
+      "fp16Ms": 0.15,
+      "speedupFp32": "1.11x",
+      "speedupFp16": "1.11x"
     },
     {
       "category": "Linear Algebra",
       "name": "Batch MatMul (BMM)",
       "shape": "[8, 128, 128] * [8, 128, 128]",
-      "baselineMs": 0.175,
-      "fp32Ms": 0.225,
-      "fp16Ms": 0.22999999523162842,
-      "speedupFp32": "0.78x",
-      "speedupFp16": "0.76x"
+      "baselineMs": 0.16999999880790712,
+      "fp32Ms": 0.1850000023841858,
+      "fp16Ms": 0.2,
+      "speedupFp32": "0.92x",
+      "speedupFp16": "0.85x"
     },
     {
       "category": "Convolution",
       "name": "Conv2D 3x3 (Tile64)",
       "shape": "[1,64,56,56] * [64,64,3,3]",
-      "baselineMs": 0.575,
-      "fp32Ms": 0.7550000011920929,
-      "fp16Ms": 0.4,
-      "speedupFp32": "0.76x",
-      "speedupFp16": "1.44x"
+      "baselineMs": 0.5450000047683716,
+      "fp32Ms": 0.2949999988079071,
+      "fp16Ms": 0.20500000119209288,
+      "speedupFp32": "1.85x",
+      "speedupFp16": "2.66x"
     },
     {
       "category": "Convolution",
       "name": "Conv2D 1x1 (Tile64)",
       "shape": "[1,128,56,56] * [128,128,1,1]",
-      "baselineMs": 0.2849999964237213,
-      "fp32Ms": 0.32999999523162843,
-      "fp16Ms": 0.2800000011920929,
-      "speedupFp32": "0.86x",
-      "speedupFp16": "1.02x"
+      "baselineMs": 0.2150000035762787,
+      "fp32Ms": 0.1550000011920929,
+      "fp16Ms": 0.2300000011920929,
+      "speedupFp32": "1.39x",
+      "speedupFp16": "0.93x"
     },
     {
       "category": "Convolution",
       "name": "Conv2D 3x3 Depthwise",
       "shape": "[1,64,56,56] * [64,1,3,3]",
-      "baselineMs": 0.14399999618530274,
-      "fp32Ms": 0.22,
-      "fp16Ms": 0.21199999809265135,
-      "speedupFp32": "0.65x",
-      "speedupFp16": "0.68x"
+      "baselineMs": 0.1640000009536743,
+      "fp32Ms": 0.1840000009536743,
+      "fp16Ms": 0.16,
+      "speedupFp32": "0.89x",
+      "speedupFp16": "1.03x"
     },
     {
       "category": "Convolution",
       "name": "ConvWithClamp 3x3 (Tile64)",
       "shape": "[1,64,56,56] * [64,64,3,3]",
-      "baselineMs": 0.5699999988079071,
-      "fp32Ms": 0.5800000011920929,
-      "fp16Ms": 0.4350000023841858,
-      "speedupFp32": "0.98x",
-      "speedupFp16": "1.31x"
+      "baselineMs": 0.5850000023841858,
+      "fp32Ms": 0.2199999988079071,
+      "fp16Ms": 0.2199999988079071,
+      "speedupFp32": "2.66x",
+      "speedupFp16": "2.66x"
     },
     {
       "category": "Convolution",
       "name": "ConvWithClamp 1x1 (Tile64)",
       "shape": "[1,128,56,56] * [128,128,1,1]",
-      "baselineMs": 0.3349999964237213,
-      "fp32Ms": 0.1950000047683716,
-      "fp16Ms": 0.25,
-      "speedupFp32": "1.72x",
-      "speedupFp16": "1.34x"
+      "baselineMs": 0.275,
+      "fp32Ms": 0.3600000023841858,
+      "fp16Ms": 0.2,
+      "speedupFp32": "0.76x",
+      "speedupFp16": "1.38x"
     },
     {
       "category": "Activation",
       "name": "ReLU (Vec4)",
       "shape": "[1,64,56,56]",
-      "baselineMs": 0.125,
-      "fp32Ms": 0.10499999821186065,
-      "fp16Ms": 0.1774999976158142,
-      "speedupFp32": "1.19x",
-      "speedupFp16": "0.70x"
+      "baselineMs": 0.1,
+      "fp32Ms": 0.12750000059604644,
+      "fp16Ms": 0.10500000119209289,
+      "speedupFp32": "0.78x",
+      "speedupFp16": "0.95x"
     },
     {
       "category": "Activation",
       "name": "Sigmoid (Vec4)",
       "shape": "[1,64,56,56]",
-      "baselineMs": 0.12000000178813934,
-      "fp32Ms": 0.225,
+      "baselineMs": 0.10499999821186065,
+      "fp32Ms": 0.15,
       "fp16Ms": 0.1125,
-      "speedupFp32": "0.53x",
-      "speedupFp16": "1.07x"
+      "speedupFp32": "0.70x",
+      "speedupFp16": "0.93x"
     },
     {
       "category": "Activation",
       "name": "Hardswish (Vec4)",
       "shape": "[1,64,56,56]",
-      "baselineMs": 0.1600000023841858,
-      "fp32Ms": 0.1125,
-      "fp16Ms": 0.11500000059604645,
-      "speedupFp32": "1.42x",
-      "speedupFp16": "1.39x"
+      "baselineMs": 0.13250000178813934,
+      "fp32Ms": 0.0949999988079071,
+      "fp16Ms": 0.10250000059604644,
+      "speedupFp32": "1.39x",
+      "speedupFp16": "1.29x"
     },
     {
       "category": "Reduction",
       "name": "Softmax (Last-Dim Vec4)",
       "shape": "[128,1024]",
-      "baselineMs": 0.6466666658719381,
+      "baselineMs": 0.5433333357175191,
       "fp32Ms": 0.35333333412806195,
-      "fp16Ms": 0.696666665871938,
-      "speedupFp32": "1.83x",
-      "speedupFp16": "0.93x"
+      "fp16Ms": 0.6100000023841858,
+      "speedupFp32": "1.54x",
+      "speedupFp16": "0.89x"
     },
     {
       "category": "Pooling & Resampling",
       "name": "MaxPool2D (2D Spatial Grid)",
       "shape": "[1,64,112,112]",
-      "baselineMs": 0.19599999904632567,
-      "fp32Ms": 0.1559999990463257,
-      "fp16Ms": 0.20799999713897704,
-      "speedupFp32": "1.26x",
-      "speedupFp16": "0.94x"
+      "baselineMs": 0.17599999904632568,
+      "fp32Ms": 0.2519999980926514,
+      "fp16Ms": 0.1559999990463257,
+      "speedupFp32": "0.70x",
+      "speedupFp16": "1.13x"
     },
     {
       "category": "Elementwise Math",
       "name": "Elementwise Mul (Vec4)",
       "shape": "[1,64,56,56]",
-      "baselineMs": 0.15,
-      "fp32Ms": 0.10999999940395355,
-      "fp16Ms": 0.1375,
-      "speedupFp32": "1.36x",
-      "speedupFp16": "1.09x"
+      "baselineMs": 0.10499999821186065,
+      "fp32Ms": 0.14000000059604645,
+      "fp16Ms": 0.12750000059604644,
+      "speedupFp32": "0.75x",
+      "speedupFp16": "0.82x"
     },
     {
       "category": "Data Movement",
       "name": "Matrix Transpose (Shared-Memory 16x16)",
       "shape": "[1024,1024]",
-      "baselineMs": 0.1640000009536743,
-      "fp32Ms": 0.2240000009536743,
-      "fp16Ms": 0.23200000286102296,
-      "speedupFp32": "0.73x",
-      "speedupFp16": "0.71x"
+      "baselineMs": 0.16800000190734862,
+      "fp32Ms": 0.1640000009536743,
+      "fp16Ms": 0.16,
+      "speedupFp32": "1.02x",
+      "speedupFp16": "1.05x"
     }
   ]
 }

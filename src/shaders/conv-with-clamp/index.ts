@@ -8,6 +8,7 @@ import { SHADER_CONV_WITH_CLAMP_GEMM } from './conv-with-clamp-gemm.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1 } from './conv-with-clamp-1x1.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_VEC4 } from './conv-with-clamp-1x1-vec4.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_64X64 } from './conv-with-clamp-1x1-tile64.wgsl';
+import { SHADER_CONV_WITH_CLAMP_1X1_64X64_F16 } from './conv-with-clamp-1x1-tile64-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_TILE64 } from './conv-with-clamp-tile64.wgsl';
 import { SHADER_CONV_WITH_CLAMP_DEPTHWISE } from './conv-with-clamp-depthwise.wgsl';
 import { SHADER_CONV_WITH_CLAMP_F16 } from './conv-with-clamp-f16.wgsl';
@@ -178,24 +179,16 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   if (isDepthwise) {
     code = isF16 ? SHADER_CONV_WITH_CLAMP_DEPTHWISE_F16 : SHADER_CONV_WITH_CLAMP_DEPTHWISE;
   } else if (groups === 1) {
-    if (isF16) {
-      if (isDenseTile64) {
-        code = SHADER_CONV_WITH_CLAMP_TILE64_F16;
-      } else {
-        code = SHADER_CONV_WITH_CLAMP_GEMM_F16;
-      }
+    if (is1x1Tile64) {
+      code = isF16 ? SHADER_CONV_WITH_CLAMP_1X1_64X64_F16 : SHADER_CONV_WITH_CLAMP_1X1_64X64;
+    } else if (isDenseTile64) {
+      code = isF16 ? SHADER_CONV_WITH_CLAMP_TILE64_F16 : SHADER_CONV_WITH_CLAMP_TILE64;
+    } else if (is1x1Vec4 && !isF16) {
+      code = SHADER_CONV_WITH_CLAMP_1X1_VEC4;
+    } else if (is1x1 && !isF16) {
+      code = SHADER_CONV_WITH_CLAMP_1X1;
     } else {
-      if (is1x1Tile64) {
-        code = SHADER_CONV_WITH_CLAMP_1X1_64X64;
-      } else if (is1x1Vec4) {
-        code = SHADER_CONV_WITH_CLAMP_1X1_VEC4;
-      } else if (is1x1) {
-        code = SHADER_CONV_WITH_CLAMP_1X1;
-      } else if (isDenseTile64) {
-        code = SHADER_CONV_WITH_CLAMP_TILE64;
-      } else {
-        code = SHADER_CONV_WITH_CLAMP_GEMM;
-      }
+      code = isF16 ? SHADER_CONV_WITH_CLAMP_GEMM_F16 : SHADER_CONV_WITH_CLAMP_GEMM;
     }
   }
 
@@ -217,7 +210,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
     workgroupCountY = Math.ceil(totalWorkgroups / 65535);
     // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
     constants = { wg_size: wgSize };
-  } else if (!isF16 && is1x1Tile64) {
+  } else if (is1x1Tile64) {
     // 64x64 register-tiled GEMM for pointwise 1x1 conv with clamp
     workgroupCountX = Math.ceil((expectedHout * expectedWout) / 64);
     workgroupCountY = Math.ceil(oc / 64);
