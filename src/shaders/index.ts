@@ -14,8 +14,7 @@ import { softmax } from './softmax';
 
 // Convolutions & pooling
 import { convWithClamp } from './conv-with-clamp';
-import { convolution, convolutionSilu } from './convolution';
-import { winogradConvolution } from './winograd-convolution';
+import { convolution } from './convolution';
 import { maxPool2d } from './max-pool-2d';
 
 // Resampling
@@ -43,7 +42,7 @@ export const shaders = {
   // Linear algebra & reductions
   mm, bmm, meanDim, softmax,
   // Convolutions & pooling
-  convolution, convolutionSilu, convWithClamp, winogradConvolution, maxPool2d,
+  convolution, convWithClamp, maxPool2d,
   // Resampling
   upsampleBilinear2d, upsampleNearest2d,
   // Shape & data movement

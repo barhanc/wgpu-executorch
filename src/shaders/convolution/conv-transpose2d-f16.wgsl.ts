@@ -41,16 +41,6 @@ struct Params {
 override wg_size: u32 = 256;
 override stride_x: u32 = 4294967295u; // = count_x * wg_size; set by host for 2D-spill
 
-override fuse_silu: bool = false;
-
-// Preserve the convolution output and sigmoid's storage precision at the fusion boundary.
-fn conv_epilogue(value: f16) -> f16 {
-  if (!fuse_silu) { return value; }
-  let stored = f16(quantizeToF16(f32(value)));
-  let gate = f16(quantizeToF16(f32(f16(1.0) / (f16(1.0) + exp(-stored)))));
-  return stored * gate;
-}
-
 @compute @workgroup_size(wg_size)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let total = params.B * params.OC * params.OH * params.OW;
@@ -102,6 +92,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       }
     }
   }
-  out[i] = conv_epilogue(f16(acc));
+  out[i] = f16(acc);
 }
 `;

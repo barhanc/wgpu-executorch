@@ -24,15 +24,6 @@ var<workgroup> a_sub: array<array<vec4<f32>, 4>, 32>;
 // 16 K rows x 64 N elements (16 vec4s) = 256 vec4s (4 KB)
 var<workgroup> b_sub: array<array<vec4<f32>, 16>, 16>;
 
-override fuse_silu: bool = false;
-
-// Preserve the convolution output and sigmoid's storage precision at the fusion boundary.
-fn conv_epilogue(value: vec4<f32>) -> vec4<f32> {
-  if (!fuse_silu) { return value; }
-  let gate = vec4<f32>(1.0) / (vec4<f32>(1.0) + exp(-value));
-  return value * gate;
-}
-
 @compute @workgroup_size(16, 8, 1)
 fn main(
   @builtin(workgroup_id) wg_id: vec3<u32>,
@@ -132,10 +123,10 @@ fn main(
       if (out_r0 + 3u < M) { b_val.w = bias[out_r0 + 3u]; }
     }
 
-    if (out_r0 + 0u < M) { out[(out_r0 + 0u) * N_vecs + out_c4] = conv_epilogue(acc0 + vec4<f32>(b_val.x)); }
-    if (out_r0 + 1u < M) { out[(out_r0 + 1u) * N_vecs + out_c4] = conv_epilogue(acc1 + vec4<f32>(b_val.y)); }
-    if (out_r0 + 2u < M) { out[(out_r0 + 2u) * N_vecs + out_c4] = conv_epilogue(acc2 + vec4<f32>(b_val.z)); }
-    if (out_r0 + 3u < M) { out[(out_r0 + 3u) * N_vecs + out_c4] = conv_epilogue(acc3 + vec4<f32>(b_val.w)); }
+    if (out_r0 + 0u < M) { out[(out_r0 + 0u) * N_vecs + out_c4] = acc0 + vec4<f32>(b_val.x); }
+    if (out_r0 + 1u < M) { out[(out_r0 + 1u) * N_vecs + out_c4] = acc1 + vec4<f32>(b_val.y); }
+    if (out_r0 + 2u < M) { out[(out_r0 + 2u) * N_vecs + out_c4] = acc2 + vec4<f32>(b_val.z); }
+    if (out_r0 + 3u < M) { out[(out_r0 + 3u) * N_vecs + out_c4] = acc3 + vec4<f32>(b_val.w); }
   }
 }
 `;

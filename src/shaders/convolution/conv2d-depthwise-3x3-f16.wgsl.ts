@@ -25,16 +25,6 @@ var<workgroup> in_tile: array<array<f16, 34>, 34>;
 var<workgroup> w_tile: array<f16, 9>;
 var<workgroup> bias_val: f16;
 
-override fuse_silu: bool = false;
-
-// Preserve the convolution output and sigmoid's storage precision at the fusion boundary.
-fn conv_epilogue(value: f16) -> f16 {
-  if (!fuse_silu) { return value; }
-  let stored = f16(quantizeToF16(f32(value)));
-  let gate = f16(quantizeToF16(f32(f16(1.0) / (f16(1.0) + exp(-stored)))));
-  return stored * gate;
-}
-
 @compute @workgroup_size(16, 16, 1)
 fn main(
   @builtin(local_invocation_id) local_id: vec3<u32>,
@@ -142,16 +132,16 @@ fn main(
   let out_base = (b * params.OC + oc) * out_hw;
 
   let out_idx00 = out_base + oh0 * out_w + ow0;
-  out[out_idx00] = conv_epilogue(acc00);
+  out[out_idx00] = acc00;
 
   if (ow0 + 1u < params.OW) {
-    out[out_idx00 + 1u] = conv_epilogue(acc01);
+    out[out_idx00 + 1u] = acc01;
   }
   if (oh0 + 1u < params.OH) {
     let out_idx10 = out_base + (oh0 + 1u) * out_w + ow0;
-    out[out_idx10] = conv_epilogue(acc10);
+    out[out_idx10] = acc10;
     if (ow0 + 1u < params.OW) {
-      out[out_idx10 + 1u] = conv_epilogue(acc11);
+      out[out_idx10 + 1u] = acc11;
     }
   }
 }

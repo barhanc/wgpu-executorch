@@ -54,9 +54,8 @@ function parseHw(v: readonly number[], argName: string): [number, number] {
  *
  * @param ctx The execution context.
  * @param args Positional arguments for the operator.
- * @param fuseSilu Apply SiLU while storing the convolution result.
  */
-function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs, fuseSilu = false): void {
+function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
   const [
     inTensor,
     weight,
@@ -290,9 +289,6 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs, fuseSilu = f
     constants = {};
   }
 
-  // The default specialization removes the activation entirely for ordinary convolutions.
-  if (fuseSilu) constants = { ...constants, fuse_silu: 1 }; // eslint-disable-line camelcase, @typescript-eslint/naming-convention
-
   const bundle = createComputeBundle(
     device,
     code,
@@ -340,11 +336,4 @@ export const convolution: Shader<ConvolutionArgs, typeof name> = {
     conv2dDepthwiseF16: SHADER_CONV2D_DEPTHWISE_F16,
   },
   recordIn,
-};
-
-/** Convolution with a SiLU epilogue, used by the offline graph optimizer. */
-export const convolutionSilu: Shader<ConvolutionArgs, 'wgpu.convolution_silu.default'> = {
-  name: 'wgpu.convolution_silu.default',
-  code: convolution.code,
-  recordIn: (ctx, args) => recordIn(ctx, args, true),
 };

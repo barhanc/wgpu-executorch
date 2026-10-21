@@ -35,15 +35,6 @@ var<workgroup> a_sub: array<array<vec4<f32>, 4>, 32>;
 // b_sub: 16 K elements x 64 spatial elements (16 vec4s) = 256 vec4s (4 KB)
 var<workgroup> b_sub: array<array<vec4<f32>, 16>, 16>;
 
-override fuse_silu: bool = false;
-
-// Preserve the convolution output and sigmoid's storage precision at the fusion boundary.
-fn conv_epilogue(value: f32) -> f32 {
-  if (!fuse_silu) { return value; }
-  let gate = f32(1.0) / (f32(1.0) + exp(-value));
-  return value * gate;
-}
-
 @compute @workgroup_size(16, 8, 1)
 fn main(
   @builtin(workgroup_id) wg_id: vec3<u32>,
@@ -217,10 +208,10 @@ fn main(
     if (out_c < N) {
       // Reuse the batch decoded for input gathering; output is NCHW.
       let out_base = col_b0[kk] * (M - 1u) * ohw + out_c;
-      if (out_r0 + 0u < M) { out[(out_r0 + 0u) * ohw + out_base] = conv_epilogue(acc0[kk]); }
-      if (out_r0 + 1u < M) { out[(out_r0 + 1u) * ohw + out_base] = conv_epilogue(acc1[kk]); }
-      if (out_r0 + 2u < M) { out[(out_r0 + 2u) * ohw + out_base] = conv_epilogue(acc2[kk]); }
-      if (out_r0 + 3u < M) { out[(out_r0 + 3u) * ohw + out_base] = conv_epilogue(acc3[kk]); }
+      if (out_r0 + 0u < M) { out[(out_r0 + 0u) * ohw + out_base] = acc0[kk]; }
+      if (out_r0 + 1u < M) { out[(out_r0 + 1u) * ohw + out_base] = acc1[kk]; }
+      if (out_r0 + 2u < M) { out[(out_r0 + 2u) * ohw + out_base] = acc2[kk]; }
+      if (out_r0 + 3u < M) { out[(out_r0 + 3u) * ohw + out_base] = acc3[kk]; }
     }
   }
 }

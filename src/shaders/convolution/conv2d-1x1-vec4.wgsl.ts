@@ -26,15 +26,6 @@ const TILE4: u32 = 8u;
 var<workgroup> a_sub: array<array<vec4<f32>, 8>, 32>;
 var<workgroup> b_sub: array<array<vec4<f32>, 8>, 32>;
 
-override fuse_silu: bool = false;
-
-// Preserve the convolution output and sigmoid's storage precision at the fusion boundary.
-fn conv_epilogue(value: vec4<f32>) -> vec4<f32> {
-  if (!fuse_silu) { return value; }
-  let gate = vec4<f32>(1.0) / (vec4<f32>(1.0) + exp(-value));
-  return value * gate;
-}
-
 @compute @workgroup_size(8, 8, 1)
 fn main(
   @builtin(workgroup_id) wg_id: vec3<u32>,
@@ -108,7 +99,7 @@ fn main(
       }
       let b_idx = n4 / sp_vecs;
       let sp4 = n4 % sp_vecs;
-      out[(b_idx * params.OC + m) * sp_vecs + sp4] = conv_epilogue(val);
+      out[(b_idx * params.OC + m) * sp_vecs + sp4] = val;
     }
   }
 }

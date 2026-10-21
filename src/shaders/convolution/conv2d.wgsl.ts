@@ -41,15 +41,6 @@ override stride_x: u32 = 4294967295u; // = count_x * wg_size; set by host for 2D
 // Direct 2D convolution (non-transposed), NCHW row-major, fp32. ONE thread per
 // (b, oc, oh, ow) output element. Supports general stride/padding/dilation and
 // groups. input [B,IC,IH,IW]; weight [OC, IC/groups, KH, KW]; bias [OC] (gated).
-override fuse_silu: bool = false;
-
-// Preserve the convolution output and sigmoid's storage precision at the fusion boundary.
-fn conv_epilogue(value: f32) -> f32 {
-  if (!fuse_silu) { return value; }
-  let gate = f32(1.0) / (f32(1.0) + exp(-value));
-  return value * gate;
-}
-
 @compute @workgroup_size(wg_size)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let total = params.B * params.OC * params.OH * params.OW;
@@ -94,6 +85,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       }
     }
   }
-  out[i] = conv_epilogue(acc);
+  out[i] = acc;
 }
 `;

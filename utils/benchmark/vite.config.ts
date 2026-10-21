@@ -7,31 +7,6 @@ function benchmarkReporterPlugin(): Plugin {
   return {
     name: 'benchmark-reporter',
     configureServer(server) {
-      server.middlewares.use('/api/graph-results', (req, res) => {
-        if (req.method !== 'POST') {
-          res.writeHead(405).end();
-          return;
-        }
-        let body = '';
-        req.on('data', (chunk) => {
-          body += chunk;
-        });
-        req.on('end', () => {
-          try {
-            const report = JSON.parse(body);
-            fs.writeFileSync(
-              resolve(
-                import.meta.dirname,
-                report.experiment === 'winograd' ? 'winograd-results.json' : 'graph-results.json'
-              ),
-              JSON.stringify(report, null, 2) + '\n'
-            );
-            res.writeHead(200).end();
-          } catch {
-            res.writeHead(400).end();
-          }
-        });
-      });
       server.middlewares.use('/api/results', (req, res) => {
         if (req.method === 'POST') {
           let body = '';
@@ -115,11 +90,5 @@ export default defineConfig({
   build: {
     outDir: resolve(import.meta.dirname, '../../dist-benchmark'),
     emptyOutDir: true,
-    rolldownOptions: {
-      input: {
-        benchmark: resolve(import.meta.dirname, 'index.html'),
-        graph: resolve(import.meta.dirname, 'graph.html'),
-      },
-    },
   },
 });
