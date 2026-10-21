@@ -11,6 +11,7 @@ import { SHADER_CONV2D_1X1_64X64 } from './conv2d-1x1-tile64.wgsl';
 import { SHADER_CONV2D_TILE64 } from './conv2d-tile64.wgsl';
 import { SHADER_CONV2D_DEPTHWISE } from './conv2d-depthwise.wgsl';
 import { SHADER_CONV_TRANSPOSE2D } from './conv-transpose2d.wgsl';
+import { SHADER_CONV_TRANSPOSE2D_F16 } from './conv-transpose2d-f16.wgsl';
 import { SHADER_CONV2D_F16 } from './conv2d-f16.wgsl';
 import { SHADER_CONV2D_GEMM_F16 } from './conv2d-gemm-f16.wgsl';
 import { SHADER_CONV2D_TILE64_F16 } from './conv2d-tile64-f16.wgsl';
@@ -185,10 +186,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
 
   let code = isF16 ? SHADER_CONV2D_F16 : SHADER_CONV2D;
   if (transposed) {
-    if (isF16) {
-      throw new Error(`${name}: float16 transposed conv not supported`);
-    }
-    code = SHADER_CONV_TRANSPOSE2D;
+    code = isF16 ? SHADER_CONV_TRANSPOSE2D_F16 : SHADER_CONV_TRANSPOSE2D;
   } else if (isDepthwise) {
     code = isF16 ? SHADER_CONV2D_DEPTHWISE_F16 : SHADER_CONV2D_DEPTHWISE;
   } else if (groups === 1) {
