@@ -1,3 +1,4 @@
+benchmark/** linguist-vendored
 example/** linguist-vendored
 utils/** linguist-vendored
 *.pte binary
