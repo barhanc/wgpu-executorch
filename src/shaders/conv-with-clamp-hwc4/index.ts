@@ -101,7 +101,26 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampHwc4Args): void 
     throw new Error(`${name}: Device does not support shader-f16 feature`);
   }
 
+  let kh = 3;
+  let kw = 3;
+  if (weight.shape.length === 4) {
+    kh = weight.shape[2];
+    kw = weight.shape[3];
+  } else if (weight.shape.length === 1) {
+    if (isDepthwise) {
+      const kk = weight.shape[0] / (oc4 * 4);
+      kh = Math.round(Math.sqrt(kk));
+      kw = kh;
+    } else {
+      const kk = weight.shape[0] / (oc4 * ic4 * 16);
+      kh = Math.round(Math.sqrt(kk));
+      kw = kh;
+    }
+  }
+
   const is1x1 =
+    kh === 1 &&
+    kw === 1 &&
     sH === 1 &&
     sW === 1 &&
     pH === 0 &&
@@ -112,10 +131,11 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampHwc4Args): void 
     ih === oh &&
     iw === ow;
 
+  const owBlocks = Math.ceil(ow / 4);
   const wgSize = 256;
   let code: string;
   let uniformBuffer: GPUBuffer;
-  const total = is1x1 ? Math.ceil((b * oh * ow) / 4) * oc4 : b * oh * ow * oc4;
+  const total = is1x1 ? Math.ceil((b * oh * ow) / 4) * oc4 : b * oh * owBlocks * oc4;
   const totalWorkgroups = Math.ceil(total / wgSize);
   const workgroupCountX = Math.min(totalWorkgroups, 65535);
   const workgroupCountY = Math.ceil(totalWorkgroups / 65535);
@@ -132,9 +152,7 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampHwc4Args): void 
     uniformBuffer = ctx.uniformBuffer(buffer);
   } else if (isDepthwise) {
     code = isF16 ? SHADER_CONV_WITH_CLAMP_HWC4_DW_F16 : SHADER_CONV_WITH_CLAMP_HWC4_DW;
-    const kh = 3;
-    const kw = 3;
-    const buffer = new ArrayBuffer(80);
+    const buffer = new ArrayBuffer(96);
     const u32View = new Uint32Array(buffer);
     const f32View = new Float32Array(buffer);
     // prettier-ignore
@@ -148,15 +166,15 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampHwc4Args): void 
       dH, dW,
       hasBias ? 1 : 0,
       strideX,
+      owBlocks,
+      0,
     ]);
-    f32View[16] = minVal;
-    f32View[17] = maxVal;
+    f32View[18] = minVal;
+    f32View[19] = maxVal;
     uniformBuffer = ctx.uniformBuffer(buffer);
   } else {
     code = isF16 ? SHADER_CONV_WITH_CLAMP_HWC4_F16 : SHADER_CONV_WITH_CLAMP_HWC4;
-    const kh = 3;
-    const kw = 3;
-    const buffer = new ArrayBuffer(80);
+    const buffer = new ArrayBuffer(96);
     const u32View = new Uint32Array(buffer);
     const f32View = new Float32Array(buffer);
     // prettier-ignore
@@ -171,9 +189,10 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampHwc4Args): void 
       dH, dW,
       hasBias ? 1 : 0,
       strideX,
+      owBlocks,
     ]);
-    f32View[16] = minVal;
-    f32View[17] = maxVal;
+    f32View[18] = minVal;
+    f32View[19] = maxVal;
     uniformBuffer = ctx.uniformBuffer(buffer);
   }
 
