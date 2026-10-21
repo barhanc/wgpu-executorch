@@ -60,7 +60,7 @@ function recordIn(ctx: WgpuExecutionContext, args: BmmArgs): void {
   // Use 64x64 register-tiled GEMM when dimensions are sufficiently large and divisible by 4,
   // falling back to 32x32 vec4 or 32x32 scalar tiled paths.
   const useVec4 = k % 4 === 0 && n % 4 === 0;
-  const use64x64 = useVec4 && m >= 64 && n >= 64 && k >= 16;
+  const use64x64 = useVec4 && m >= 128 && n >= 128 && k >= 16;
 
   let code = isF16 ? SHADER_BMM_TILED_F16 : SHADER_BMM_TILED;
   let workgroupCountX = Math.ceil(n / 32);

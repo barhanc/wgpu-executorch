@@ -1,6 +1,6 @@
 /**
- * WGSL compute shader for 64x64 register-tiled 1x1 convolution with clamp bounds (N = 1).
- * Features 2x higher arithmetic intensity, computing 8x8 elements per thread (64 elements).
+ * WGSL compute shader for 64x64 register-tiled 1x1 convolution with clamp bounds (N = 1, 4x4 per thread across 256 threads).
+ * High occupancy, coalesced 128-bit memory transactions, minimal register pressure for all GPUs.
  *
  * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
  * License: MIT (Copyright (c) 2026 Bartosz Hanc <bartosz.hanc02@gmail.com>)
@@ -39,10 +39,12 @@ struct Params {
 }
 @group(0) @binding(4) var<uniform> params: Params;
 
+// 64 rows x 16 K elements (4 vec4s) = 256 vec4s (4 KB)
 var<workgroup> a_sub: array<array<vec4<f32>, 4>, 64>;
+// 16 K rows x 64 N elements (16 vec4s) = 256 vec4s (4 KB)
 var<workgroup> b_sub: array<array<vec4<f32>, 16>, 16>;
 
-@compute @workgroup_size(8, 8, 1)
+@compute @workgroup_size(16, 16, 1)
 fn main(
   @builtin(workgroup_id) wg_id: vec3<u32>,
   @builtin(local_invocation_id) local_id: vec3<u32>
@@ -50,89 +52,96 @@ fn main(
   let M = params.OC;
   let N = params.H_out * params.W_out;
   let K = params.IC;
-  let K_vecs = K / 4u;
-  let N_vecs = N / 4u;
+  let K_vecs = K >> 2u;
+  let N_vecs = N >> 2u;
 
   let tile_row0 = wg_id.y * 64u;
   let tile_col0_4 = wg_id.x * 16u;
-  let tid = local_id.y * 8u + local_id.x;
+  let tid = local_id.y * 16u + local_id.x; // 0..255
 
-  var acc0: array<vec4<f32>, 8>;
-  var acc1: array<vec4<f32>, 8>;
-  for (var i = 0u; i < 8u; i = i + 1u) {
-    acc0[i] = vec4<f32>(0.0);
-    acc1[i] = vec4<f32>(0.0);
-  }
+  var acc0 = vec4<f32>(0.0);
+  var acc1 = vec4<f32>(0.0);
+  var acc2 = vec4<f32>(0.0);
+  var acc3 = vec4<f32>(0.0);
 
-  let num_tiles = (K + 15u) / 16u;
+  // Load coordinates for 256 threads (each thread loads 1 vec4 of A/weight and 1 vec4 of B/input)
+  let a_r = tid >> 2u;      // 0..63
+  let a_c = tid & 3u;       // 0..3
+  let a_m = tile_row0 + a_r;
+  let a_valid = a_m < M;
+
+  let b_r = tid >> 4u;      // 0..15
+  let b_c = tid & 15u;      // 0..15
+  let b_n4 = tile_col0_4 + b_c;
+  let b_c_valid = b_n4 < N_vecs;
+
+  let num_tiles = (K + 15u) >> 4u;
   for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
-    let k4_start = t * 4u;
-    let a_row = tid;
-    let a_m = tile_row0 + a_row;
-    for (var col = 0u; col < 4u; col = col + 1u) {
-      if (a_m < M && (k4_start + col) < K_vecs) {
-        a_sub[a_row][col] = t_weight[a_m * K_vecs + k4_start + col];
-      } else {
-        a_sub[a_row][col] = vec4<f32>(0.0);
-      }
+    let k4_start = t << 2u;
+    let k_start = t << 4u;
+
+    if (a_valid && (k4_start + a_c) < K_vecs) {
+      a_sub[a_r][a_c] = t_weight[a_m * K_vecs + k4_start + a_c];
+    } else {
+      a_sub[a_r][a_c] = vec4<f32>(0.0);
     }
 
-    let b_r = tid / 4u;
-    let b_c_base = (tid % 4u) * 4u;
-    let b_k = t * 16u + b_r;
-    for (var i = 0u; i < 4u; i = i + 1u) {
-      let b_c = b_c_base + i;
-      let b_n4 = tile_col0_4 + b_c;
-      if (b_k < K && b_n4 < N_vecs) {
-        b_sub[b_r][b_c] = t_x[b_k * N_vecs + b_n4];
-      } else {
-        b_sub[b_r][b_c] = vec4<f32>(0.0);
-      }
+    let bk = k_start + b_r;
+    if (bk < K && b_c_valid) {
+      b_sub[b_r][b_c] = t_x[bk * N_vecs + b_n4];
+    } else {
+      b_sub[b_r][b_c] = vec4<f32>(0.0);
     }
     workgroupBarrier();
 
-    let thread_row = local_id.y * 8u;
-    let thread_col4 = local_id.x * 2u;
+    let thread_r = local_id.y << 2u; // 0..60 (step 4)
+    let thread_c4 = local_id.x;      // 0..15
 
     for (var k4: u32 = 0u; k4 < 4u; k4 = k4 + 1u) {
-      let b0_0 = b_sub[k4 * 4u + 0u][thread_col4];
-      let b0_1 = b_sub[k4 * 4u + 0u][thread_col4 + 1u];
+      let b0 = b_sub[k4 * 4u + 0u][thread_c4];
+      let b1 = b_sub[k4 * 4u + 1u][thread_c4];
+      let b2 = b_sub[k4 * 4u + 2u][thread_c4];
+      let b3 = b_sub[k4 * 4u + 3u][thread_c4];
 
-      let b1_0 = b_sub[k4 * 4u + 1u][thread_col4];
-      let b1_1 = b_sub[k4 * 4u + 1u][thread_col4 + 1u];
+      let a0 = a_sub[thread_r + 0u][k4];
+      let a1 = a_sub[thread_r + 1u][k4];
+      let a2 = a_sub[thread_r + 2u][k4];
+      let a3 = a_sub[thread_r + 3u][k4];
 
-      let b2_0 = b_sub[k4 * 4u + 2u][thread_col4];
-      let b2_1 = b_sub[k4 * 4u + 2u][thread_col4 + 1u];
-
-      let b3_0 = b_sub[k4 * 4u + 3u][thread_col4];
-      let b3_1 = b_sub[k4 * 4u + 3u][thread_col4 + 1u];
-
-      for (var ir = 0u; ir < 8u; ir = ir + 1u) {
-        let ac = a_sub[thread_row + ir][k4];
-        acc0[ir] = acc0[ir] + b0_0 * ac.x + b1_0 * ac.y + b2_0 * ac.z + b3_0 * ac.w;
-        acc1[ir] = acc1[ir] + b0_1 * ac.x + b1_1 * ac.y + b2_1 * ac.z + b3_1 * ac.w;
-      }
+      acc0 = acc0 + b0 * a0.x + b1 * a0.y + b2 * a0.z + b3 * a0.w;
+      acc1 = acc1 + b0 * a1.x + b1 * a1.y + b2 * a1.z + b3 * a1.w;
+      acc2 = acc2 + b0 * a2.x + b1 * a2.y + b2 * a2.z + b3 * a2.w;
+      acc3 = acc3 + b0 * a3.x + b1 * a3.y + b2 * a3.z + b3 * a3.w;
     }
     workgroupBarrier();
   }
 
-  let thread_row = local_id.y * 8u;
-  let col4 = tile_col0_4 + local_id.x * 2u;
-  for (var ir = 0u; ir < 8u; ir = ir + 1u) {
-    let r = tile_row0 + thread_row + ir;
-    if (r < M) {
-      var bias_val = vec4<f32>(0.0);
-      if (params.has_bias != 0u) {
-        bias_val = vec4<f32>(t_bias[r]);
-      }
-      let min_v = vec4<f32>(params.output_min);
-      let max_v = vec4<f32>(params.output_max);
-      if (col4 < N_vecs) {
-        t_out[r * N_vecs + col4] = clamp(acc0[ir] + bias_val, min_v, max_v);
-      }
-      if (col4 + 1u < N_vecs) {
-        t_out[r * N_vecs + col4 + 1u] = clamp(acc1[ir] + bias_val, min_v, max_v);
-      }
+  let thread_r = local_id.y << 2u;
+  let out_r0 = tile_row0 + thread_r;
+  let out_c4 = tile_col0_4 + local_id.x;
+  let min_v = vec4<f32>(params.output_min);
+  let max_v = vec4<f32>(params.output_max);
+
+  if (out_c4 < N_vecs) {
+    if (out_r0 + 0u < M) {
+      var v0 = acc0;
+      if (params.has_bias != 0u) { v0 = v0 + vec4<f32>(t_bias[out_r0 + 0u]); }
+      t_out[(out_r0 + 0u) * N_vecs + out_c4] = clamp(v0, min_v, max_v);
+    }
+    if (out_r0 + 1u < M) {
+      var v1 = acc1;
+      if (params.has_bias != 0u) { v1 = v1 + vec4<f32>(t_bias[out_r0 + 1u]); }
+      t_out[(out_r0 + 1u) * N_vecs + out_c4] = clamp(v1, min_v, max_v);
+    }
+    if (out_r0 + 2u < M) {
+      var v2 = acc2;
+      if (params.has_bias != 0u) { v2 = v2 + vec4<f32>(t_bias[out_r0 + 2u]); }
+      t_out[(out_r0 + 2u) * N_vecs + out_c4] = clamp(v2, min_v, max_v);
+    }
+    if (out_r0 + 3u < M) {
+      var v3 = acc3;
+      if (params.has_bias != 0u) { v3 = v3 + vec4<f32>(t_bias[out_r0 + 3u]); }
+      t_out[(out_r0 + 3u) * N_vecs + out_c4] = clamp(v3, min_v, max_v);
     }
   }
 }
