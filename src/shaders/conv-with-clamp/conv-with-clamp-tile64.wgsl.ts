@@ -85,6 +85,30 @@ fn main(
   let b_c4 = tid & 15u;     // 0..15 (col in spatial tile)
   let n_base = tile_col0 + (b_c4 << 2u);
 
+  // Precompute invariant spatial coordinates for this thread's 4 input columns once
+  var col_b: array<u32, 4>;
+  var col_ih_base: array<i32, 4>;
+  var col_iw_base: array<i32, 4>;
+  var col_valid: array<bool, 4>;
+  for (var kk = 0u; kk < 4u; kk = kk + 1u) {
+    let n = n_base + kk;
+    if (n < N) {
+      col_valid[kk] = true;
+      let b_val = n / ohw;
+      let sp = n % ohw;
+      col_b[kk] = b_val;
+      let oh = sp / params.W_out;
+      let ow = sp % params.W_out;
+      col_ih_base[kk] = i32(oh) * sH - pH;
+      col_iw_base[kk] = i32(ow) * sW - pW;
+    } else {
+      col_valid[kk] = false;
+      col_b[kk] = 0u;
+      col_ih_base[kk] = 0;
+      col_iw_base[kk] = 0;
+    }
+  }
+
   let num_tiles = (K + 15u) >> 4u;
   for (var t = 0u; t < num_tiles; t = t + 1u) {
     let k_start = t << 4u;
@@ -97,7 +121,7 @@ fn main(
       a_sub[a_r][a_c] = vec4<f32>(0.0);
     }
 
-    // 2. Coalesced load of input (256 threads load 256 vec4s)
+    // 2. Coalesced load of input using precomputed spatial bases
     let kk_idx = k_start + b_r;
     var b_row = vec4<f32>(0.0);
     if (kk_idx < K) {
@@ -107,16 +131,11 @@ fn main(
       let kw = i32(rem % params.Kw) * dW;
 
       for (var kk = 0u; kk < 4u; kk = kk + 1u) {
-        let n = n_base + kk;
-        if (n < N) {
-          let b_val = n / ohw;
-          let sp = n % ohw;
-          let oh = sp / params.W_out;
-          let ow = sp % params.W_out;
-          let ih = i32(oh) * sH - pH + kh;
-          let iw = i32(ow) * sW - pW + kw;
+        if (col_valid[kk]) {
+          let ih = col_ih_base[kk] + kh;
+          let iw = col_iw_base[kk] + kw;
           if (ih >= 0 && ih < iH && iw >= 0 && iw < iW) {
-            let ch_idx = b_val * params.IC + k_ic;
+            let ch_idx = col_b[kk] * params.IC + k_ic;
             b_row[kk] = t_x[ch_idx * in_hw + u32(ih) * in_w + u32(iw)];
           }
         }
