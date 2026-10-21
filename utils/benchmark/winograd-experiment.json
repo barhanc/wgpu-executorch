@@ -1,0 +1,23 @@
+{
+  "implementation": "Winograd F(2x2,3x3) and F(4x4,3x3); CPU constant-weight pretransform, GPU input transform, existing batched GEMM, GPU inverse transform with bias/clamp",
+  "reference": "https://arxiv.org/abs/1509.09308",
+  "replacedDepthArtConvolutions": 20,
+  "weightPacking": "Once when loading the model, outside warmup and measurement. Original weights are unmodified.",
+  "scratch": "Two shared graph buffers reused sequentially by every transformed convolution. No per-frame allocation.",
+  "f2ScratchBytes": 128450560,
+  "f4ScratchBytes": 72253440,
+  "precision": "Transforms and GEMM operate in FP32; FP16 graphs round the output to FP16. This limits overflow and cancellation in the transforms.",
+  "accuracy": {
+    "cpuOracle": "12 cases: FP32/FP16, both tile sizes, odd channel counts, multiple batches, non-square spatial tails, no padding/one-pixel padding/two-pixel padding, bias/no-bias, clamp/no-clamp and one-pixel outputs",
+    "fullModel": "Both tile sizes and precisions pass the existing committed PyTorch DepthART reference tolerances without relaxation.",
+    "cameraPipeline": "F4 FP16 preprocess -> full model -> depth stats -> draw passes circle/gradient/black/white frames against the FP32 reference. Grayscale tolerance remains one byte.",
+    "chromeExample": "Synthetic animated video input; both FP32 and FP16 Winograd pipelines reach camera live and produce frame metrics; precision switching succeeds."
+  },
+  "decision": "F4 is available via ?winograd=4 in the DepthART example. F2 remains a benchmark control because it provides little FP32 gain and regresses FP16 locally. Neither path changes production defaults pending more hardware measurements and evaluation of scratch memory cost.",
+  "remainingLimitation": "The existing tiled GEMM is reused unchanged. Full transformed intermediates add memory traffic; measured full-model gains are well below the multiplication reduction and below 2x.",
+  "reproduce": {
+    "native": "WGPU_WINOGRAD_RESULTS=/tmp/winograd-results.json npx vitest run tests/program/winograd.test.ts --disableConsoleIntercept",
+    "chrome": "npm run benchmark:web, then visit http://localhost:5178/graph.html?winograd=4",
+    "example": "npm run example, then visit http://localhost:5173/?winograd=4#/depth-estimation"
+  }
+}

@@ -5,6 +5,7 @@
 
 import type { Program } from '../../../../src';
 import { WgpuExecutionContext } from '../../../../src';
+import { winogradProgram } from '../../../../utils/winograd-program';
 import type { Precision } from '../types';
 import {
   clearStats,
@@ -113,8 +114,14 @@ export async function startFrameLoop(
     throw new Error('failed to fetch depth estimation model artifacts');
   }
 
-  const program = (await programRes.json()) as Program;
-  const weights = await weightsRes.arrayBuffer();
+  const original = (await programRes.json()) as Program;
+  const originalWeights = await weightsRes.arrayBuffer();
+  // Opt in while Winograd's extra scratch memory and performance are evaluated
+  // across adapters. Weight packing runs once when the model is loaded.
+  const useWinograd = new URLSearchParams(location.search).get('winograd') === '4';
+  const { program, weights } = useWinograd
+    ? winogradProgram(original, originalWeights, 4)
+    : { program: original, weights: originalWeights };
 
   // Record the compute pipeline
   const ctx = new WgpuExecutionContext(device);

@@ -20,7 +20,10 @@ function benchmarkReporterPlugin(): Plugin {
           try {
             const report = JSON.parse(body);
             fs.writeFileSync(
-              resolve(import.meta.dirname, 'graph-results.json'),
+              resolve(
+                import.meta.dirname,
+                report.experiment === 'winograd' ? 'winograd-results.json' : 'graph-results.json'
+              ),
               JSON.stringify(report, null, 2) + '\n'
             );
             res.writeHead(200).end();

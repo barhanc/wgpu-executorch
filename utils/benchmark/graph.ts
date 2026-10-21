@@ -1,5 +1,6 @@
 import { WgpuExecutionContext, type Program, type ProgramTensor } from '../../src';
 import { optimizeProgram } from '../optimize-program';
+import { winogradProgram } from '../winograd-program';
 
 async function run() {
   const display = document.getElementById('results')!;
@@ -11,7 +12,9 @@ async function run() {
   device.addEventListener('uncapturederror', (event) => errors.push(event.error.message));
   const median = (values: number[]) => [...values].sort((a, b) => a - b)[values.length >> 1];
   const results = [];
-  for (const model of ['depthart', 'yolo26n']) {
+  const winogradTile = new URLSearchParams(location.search).get('winograd');
+  const tile = winogradTile === '2' ? 2 : winogradTile === '4' ? 4 : undefined;
+  for (const model of tile ? ['depthart'] : ['depthart', 'yolo26n']) {
     for (const dtype of hasF16 ? (['float32', 'float16'] as const) : (['float32'] as const)) {
       display.textContent = `Running ${model} ${dtype}…`;
       const suffix = dtype === 'float16' ? '-fp16' : '';
@@ -22,24 +25,37 @@ async function run() {
       if (responses.some((response) => !response.ok)) throw new Error(`Failed loading ${model}`);
       const original = (await responses[0].json()) as Program;
       const weights = await responses[1].arrayBuffer();
-      const { program, stats } = optimizeProgram(original, {
+      const optimized = optimizeProgram(original, {
         aliasCopies: true,
         fuseConvolutionSilu: true,
         movePointwiseBeforeBilinear: true,
       });
+      const candidate = tile
+        ? winogradProgram(original, weights, tile)
+        : { program: optimized.program, weights };
+      const program = candidate.program;
+      const stats = tile
+        ? {
+            tile,
+            replaced: 'replaced' in candidate ? candidate.replaced : [],
+            scratchBytes: 'scratchBytes' in candidate ? candidate.scratchBytes : 0,
+          }
+        : optimized.stats;
       const array = dtype === 'float16' ? Float16Array : Float32Array;
-      const runs = [original, program].map((graph) => {
-        const ctx = new WgpuExecutionContext(device);
-        const inputSpec = graph.values[graph.inputIds[0]] as ProgramTensor;
-        const outputSpec = graph.values[graph.outputIds[0]] as ProgramTensor;
-        const input = ctx.tensor(dtype, inputSpec.shape);
-        const output = ctx.tensor(dtype, outputSpec.shape);
-        input.setData(
-          new array(Array.from({ length: input.numel }, (value, i) => (i % 251) / 250 - 0.5))
-        );
-        ctx.recordProgram(graph, weights, [input, output]);
-        return { ctx, output };
-      });
+      const runs = [{ program: original, weights }, candidate].map(
+        ({ program: graph, weights }) => {
+          const ctx = new WgpuExecutionContext(device);
+          const inputSpec = graph.values[graph.inputIds[0]] as ProgramTensor;
+          const outputSpec = graph.values[graph.outputIds[0]] as ProgramTensor;
+          const input = ctx.tensor(dtype, inputSpec.shape);
+          const output = ctx.tensor(dtype, outputSpec.shape);
+          input.setData(
+            new array(Array.from({ length: input.numel }, (value, i) => (i % 251) / 250 - 0.5))
+          );
+          ctx.recordProgram(graph, weights, [input, output]);
+          return { ctx, output };
+        }
+      );
       try {
         const timings: number[][] = [[], []];
         // Record once above; alternate order and await each submission separately.
@@ -79,7 +95,8 @@ async function run() {
   }
   if (errors.length) throw new Error(errors.join('\n'));
   const report = {
-    baseline: 'Original graph, same current kernels and precision',
+    baseline: 'Original graph with current production kernels, same precision',
+    experiment: tile ? 'winograd' : 'graph-rewrites',
     browser: navigator.userAgent,
     gpu: {
       vendor: adapter.info.vendor,
