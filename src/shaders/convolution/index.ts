@@ -10,12 +10,16 @@ import { SHADER_CONV2D_1X1_VEC4 } from './conv2d-1x1-vec4.wgsl';
 import { SHADER_CONV2D_1X1_64X64 } from './conv2d-1x1-tile64.wgsl';
 import { SHADER_CONV2D_1X1_64X64_F16 } from './conv2d-1x1-tile64-f16.wgsl';
 import { SHADER_CONV2D_TILE64 } from './conv2d-tile64.wgsl';
+import { SHADER_CONV2D_TILE32 } from './conv2d-tile32.wgsl';
+import { SHADER_CONV2D_1X1_TILE32 } from './conv2d-1x1-tile32.wgsl';
+import { SHADER_CONV2D_1X1_TILE32_F16 } from './conv2d-1x1-tile32-f16.wgsl';
 import { SHADER_CONV2D_DEPTHWISE } from './conv2d-depthwise.wgsl';
 import { SHADER_CONV_TRANSPOSE2D } from './conv-transpose2d.wgsl';
 import { SHADER_CONV_TRANSPOSE2D_F16 } from './conv-transpose2d-f16.wgsl';
 import { SHADER_CONV2D_F16 } from './conv2d-f16.wgsl';
 import { SHADER_CONV2D_GEMM_F16 } from './conv2d-gemm-f16.wgsl';
 import { SHADER_CONV2D_TILE64_F16 } from './conv2d-tile64-f16.wgsl';
+import { SHADER_CONV2D_TILE32_F16 } from './conv2d-tile32-f16.wgsl';
 import { SHADER_CONV2D_DEPTHWISE_F16 } from './conv2d-depthwise-f16.wgsl';
 
 const name = 'aten.convolution.default';
@@ -173,9 +177,17 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
     dH === 1 &&
     dW === 1;
   const is1x1Vec4 = is1x1 && ic % 4 === 0 && (oh * ow) % 4 === 0 && oc % 4 === 0;
-  const is1x1Tile64 = is1x1Vec4 && b === 1 && oc >= 16 && oh * ow >= 64 && ic >= 16;
+  const is1x1Tile32 = is1x1Vec4 && b === 1 && oc <= 32 && oh * ow >= 64 && ic >= 16;
+  const is1x1Tile64 = is1x1Vec4 && b === 1 && oc > 32 && oh * ow >= 64 && ic >= 16;
+  const isDenseTile32 =
+    !transposed &&
+    groups === 1 &&
+    oc <= 32 &&
+    oc >= 8 &&
+    b * oh * ow >= 64 &&
+    (ic * kh * kw) % 4 === 0;
   const isDenseTile64 =
-    !transposed && groups === 1 && oc >= 16 && b * oh * ow >= 64 && (ic * kh * kw) % 4 === 0;
+    !transposed && groups === 1 && oc > 32 && b * oh * ow >= 64 && (ic * kh * kw) % 4 === 0;
 
   const isDepthwise =
     !transposed &&
@@ -191,8 +203,12 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
   } else if (isDepthwise) {
     code = isF16 ? SHADER_CONV2D_DEPTHWISE_F16 : SHADER_CONV2D_DEPTHWISE;
   } else if (groups === 1) {
-    if (is1x1Tile64) {
+    if (is1x1Tile32) {
+      code = isF16 ? SHADER_CONV2D_1X1_TILE32_F16 : SHADER_CONV2D_1X1_TILE32;
+    } else if (is1x1Tile64) {
       code = isF16 ? SHADER_CONV2D_1X1_64X64_F16 : SHADER_CONV2D_1X1_64X64;
+    } else if (isDenseTile32) {
+      code = isF16 ? SHADER_CONV2D_TILE32_F16 : SHADER_CONV2D_TILE32;
     } else if (isDenseTile64) {
       code = isF16 ? SHADER_CONV2D_TILE64_F16 : SHADER_CONV2D_TILE64;
     } else if (is1x1Vec4 && !isF16) {
@@ -222,10 +238,20 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
     workgroupCountY = Math.ceil(totalWorkgroups / 65535);
     // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
     constants = { wg_size: wgSize, stride_x: workgroupCountX * wgSize };
+  } else if (is1x1Tile32) {
+    // 32x64 register-tiled GEMM for pointwise 1x1 conv
+    workgroupCountX = Math.ceil((oh * ow) / 64);
+    workgroupCountY = Math.ceil(oc / 32);
+    constants = {};
   } else if (is1x1Tile64) {
     // 64x64 register-tiled GEMM for pointwise 1x1 conv
     workgroupCountX = Math.ceil((oh * ow) / 64);
     workgroupCountY = Math.ceil(oc / 64);
+    constants = {};
+  } else if (isDenseTile32) {
+    // 32x64 register-tiled GEMM for general dense convolution
+    workgroupCountX = Math.ceil((b * oh * ow) / 64);
+    workgroupCountY = Math.ceil(oc / 32);
     constants = {};
   } else if (isDenseTile64) {
     // 64x64 register-tiled GEMM for general dense convolution

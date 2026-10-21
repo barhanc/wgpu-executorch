@@ -10,10 +10,14 @@ import { SHADER_CONV_WITH_CLAMP_1X1_VEC4 } from './conv-with-clamp-1x1-vec4.wgsl
 import { SHADER_CONV_WITH_CLAMP_1X1_64X64 } from './conv-with-clamp-1x1-tile64.wgsl';
 import { SHADER_CONV_WITH_CLAMP_1X1_64X64_F16 } from './conv-with-clamp-1x1-tile64-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_TILE64 } from './conv-with-clamp-tile64.wgsl';
+import { SHADER_CONV_WITH_CLAMP_TILE32 } from './conv-with-clamp-tile32.wgsl';
+import { SHADER_CONV_WITH_CLAMP_1X1_TILE32 } from './conv-with-clamp-1x1-tile32.wgsl';
+import { SHADER_CONV_WITH_CLAMP_1X1_TILE32_F16 } from './conv-with-clamp-1x1-tile32-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_DEPTHWISE } from './conv-with-clamp-depthwise.wgsl';
 import { SHADER_CONV_WITH_CLAMP_F16 } from './conv-with-clamp-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_GEMM_F16 } from './conv-with-clamp-gemm-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_TILE64_F16 } from './conv-with-clamp-tile64-f16.wgsl';
+import { SHADER_CONV_WITH_CLAMP_TILE32_F16 } from './conv-with-clamp-tile32-f16.wgsl';
 import { SHADER_CONV_WITH_CLAMP_DEPTHWISE_F16 } from './conv-with-clamp-depthwise-f16.wgsl';
 
 const name = 'et_vk.conv_with_clamp.default';
@@ -166,11 +170,19 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
     kh === 1 && kw === 1 && sH === 1 && sW === 1 && pH === 0 && pW === 0 && dH === 1 && dW === 1;
   const is1x1Vec4 =
     is1x1 && ic % 4 === 0 && (expectedHout * expectedWout) % 4 === 0 && oc % 4 === 0;
+  const is1x1Tile32 =
+    is1x1Vec4 && n === 1 && oc <= 32 && expectedHout * expectedWout >= 64 && ic >= 16;
   const is1x1Tile64 =
-    is1x1Vec4 && n === 1 && oc >= 16 && expectedHout * expectedWout >= 64 && ic >= 16;
+    is1x1Vec4 && n === 1 && oc > 32 && expectedHout * expectedWout >= 64 && ic >= 16;
 
+  const isDenseTile32 =
+    groups === 1 &&
+    oc <= 32 &&
+    oc >= 8 &&
+    n * expectedHout * expectedWout >= 64 &&
+    (ic * kh * kw) % 4 === 0;
   const isDenseTile64 =
-    groups === 1 && oc >= 16 && n * expectedHout * expectedWout >= 64 && (ic * kh * kw) % 4 === 0;
+    groups === 1 && oc > 32 && n * expectedHout * expectedWout >= 64 && (ic * kh * kw) % 4 === 0;
 
   const isDepthwise =
     groups === oc && ic === oc && icPerGroup === 1 && kh * kw <= 49 && n * oc <= 65535;
@@ -179,8 +191,12 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   if (isDepthwise) {
     code = isF16 ? SHADER_CONV_WITH_CLAMP_DEPTHWISE_F16 : SHADER_CONV_WITH_CLAMP_DEPTHWISE;
   } else if (groups === 1) {
-    if (is1x1Tile64) {
+    if (is1x1Tile32) {
+      code = isF16 ? SHADER_CONV_WITH_CLAMP_1X1_TILE32_F16 : SHADER_CONV_WITH_CLAMP_1X1_TILE32;
+    } else if (is1x1Tile64) {
       code = isF16 ? SHADER_CONV_WITH_CLAMP_1X1_64X64_F16 : SHADER_CONV_WITH_CLAMP_1X1_64X64;
+    } else if (isDenseTile32) {
+      code = isF16 ? SHADER_CONV_WITH_CLAMP_TILE32_F16 : SHADER_CONV_WITH_CLAMP_TILE32;
     } else if (isDenseTile64) {
       code = isF16 ? SHADER_CONV_WITH_CLAMP_TILE64_F16 : SHADER_CONV_WITH_CLAMP_TILE64;
     } else if (is1x1Vec4 && !isF16) {
@@ -210,10 +226,20 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
     workgroupCountY = Math.ceil(totalWorkgroups / 65535);
     // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
     constants = { wg_size: wgSize };
+  } else if (is1x1Tile32) {
+    // 32x64 register-tiled GEMM for pointwise 1x1 conv with clamp
+    workgroupCountX = Math.ceil((expectedHout * expectedWout) / 64);
+    workgroupCountY = Math.ceil(oc / 32);
+    constants = {};
   } else if (is1x1Tile64) {
     // 64x64 register-tiled GEMM for pointwise 1x1 conv with clamp
     workgroupCountX = Math.ceil((expectedHout * expectedWout) / 64);
     workgroupCountY = Math.ceil(oc / 64);
+    constants = {};
+  } else if (isDenseTile32) {
+    // 32x64 register-tiled GEMM for general dense convolution with clamp
+    workgroupCountX = Math.ceil((n * expectedHout * expectedWout) / 64);
+    workgroupCountY = Math.ceil(oc / 32);
     constants = {};
   } else if (isDenseTile64) {
     // 64x64 register-tiled GEMM for general dense convolution with clamp
