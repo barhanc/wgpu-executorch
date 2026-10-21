@@ -3,7 +3,7 @@
  * The UI is plain DOM — the interesting code lives in each task's GPU loop.
  */
 
-import type { Task } from './tasks/types';
+import type { Precision, Task } from './tasks/types';
 import { tasks } from './tasks';
 
 /** Metrics tooltip lines shared by every task: `[token, description]` pairs. */
@@ -46,6 +46,21 @@ function renderTask(task: Task): void {
   const node = cloneTemplate('task-template');
   fill(node, '.task-title', task.title);
 
+  const precisionSelect = node.querySelector('.precision-select') as HTMLSelectElement;
+  if (navigator.gpu) {
+    void navigator.gpu.requestAdapter().then((adapter) => {
+      if (adapter && !adapter.features.has('shader-f16')) {
+        const f16Opt = precisionSelect.querySelector(
+          'option[value="float16"]'
+        ) as HTMLOptionElement | null;
+        if (f16Opt) {
+          f16Opt.disabled = true;
+          f16Opt.textContent = 'FP16 (unsupported)';
+        }
+      }
+    });
+  }
+
   const tip = node.querySelector('.metrics-tip') as HTMLElement;
   for (const [token, description] of METRICS_TIP) {
     const line = document.createElement('p');
@@ -70,27 +85,53 @@ function renderTask(task: Task): void {
     startBtn.setAttribute('aria-label', state === 'live' ? 'Camera running' : 'Start camera');
   };
 
+  let stopLoop: (() => void) | null = null;
+  let stream: MediaStream | null = null;
+
+  const runPipeline = async (precision: Precision) => {
+    if (stopLoop) {
+      stopLoop();
+      stopLoop = null;
+    }
+    metricsValues.textContent = '';
+    stopLoop = await task.startFrameLoop(
+      video,
+      canvas,
+      (fps, ms) => {
+        const fpsStr = String(fps).padStart(2, ' ');
+        const msStr = ms.toFixed(1).padStart(4, ' ');
+        const modelFps = Math.round(1000 / ms);
+        metricsValues.textContent = `${fpsStr} FPS · ${msStr} MS (${modelFps} FPS)`;
+      },
+      precision
+    );
+  };
+
   startBtn.addEventListener('click', () => {
     void (async () => {
       setStatus('requesting camera', 'starting');
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 1280, height: 720 },
           audio: false,
         });
         video.srcObject = stream;
         await video.play();
 
+        setStatus('loading model', 'starting');
+        const precision = precisionSelect.value as Precision;
+        await runPipeline(precision);
+
         setStatus('camera live', 'live');
-        const stopLoop = await task.startFrameLoop(video, canvas, (fps, ms) => {
-          const fpsStr = String(fps).padStart(2, ' ');
-          const msStr = ms.toFixed(1).padStart(4, ' ');
-          const modelFps = Math.round(1000 / ms);
-          metricsValues.textContent = `${fpsStr} FPS · ${msStr} MS (${modelFps} FPS)`;
-        });
         cleanup = () => {
-          stopLoop();
-          stream.getTracks().forEach((track) => track.stop());
+          if (stopLoop) {
+            stopLoop();
+            stopLoop = null;
+          }
+          if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+            stream = null;
+          }
         };
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -99,6 +140,24 @@ function renderTask(task: Task): void {
         setStatus('pipeline error', 'error');
       }
     })();
+  });
+
+  precisionSelect.addEventListener('change', () => {
+    if (stream && stopLoop) {
+      void (async () => {
+        try {
+          setStatus('switching model', 'starting');
+          const precision = precisionSelect.value as Precision;
+          await runPipeline(precision);
+          setStatus('camera live', 'live');
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error(error);
+          metricsValues.textContent = '';
+          setStatus('pipeline error', 'error');
+        }
+      })();
+    }
   });
 
   app.replaceChildren(node);

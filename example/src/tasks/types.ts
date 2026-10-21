@@ -7,6 +7,9 @@
 /** Per-frame metrics callback: smoothed FPS and inference time in ms. */
 export type MetricsFn = (fps: number, ms: number) => void;
 
+/** Floating point precision for execution: FP32 (default) or native FP16. */
+export type Precision = 'float32' | 'float16';
+
 /**
  * Starts a task's per-frame pipeline for the given camera video.
  * Resolves with a stop function that halts the loop and releases resources.
@@ -14,7 +17,8 @@ export type MetricsFn = (fps: number, ms: number) => void;
 export type StartFrameLoop = (
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
-  onMetrics?: MetricsFn
+  onMetrics?: MetricsFn,
+  precision?: Precision
 ) => Promise<() => void>;
 
 /** Gallery tile + task page configuration. */

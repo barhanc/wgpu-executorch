@@ -5,7 +5,16 @@
 
 import type { Program } from '../../../../src';
 import { WgpuExecutionContext } from '../../../../src';
-import { clearStats, depthStats, drawDepth, preprocess } from './shaders';
+import type { Precision } from '../types';
+import {
+  clearStats,
+  depthStats,
+  depthStatsF16,
+  drawDepth,
+  drawDepthF16,
+  preprocess,
+  preprocessF16,
+} from './shaders';
 
 const size = [448, 448];
 
@@ -23,16 +32,31 @@ function onNextVideoFrame(video: HTMLVideoElement, callback: (now: number) => vo
  * @param video The playing camera video to source frames from.
  * @param canvas The canvas element to render the grayscale depth output to.
  * @param onMetrics Optional callback invoked with smoothed FPS and inference time in ms.
+ * @param precision Selected floating-point precision ('float32' or 'float16').
  * @returns A stop function that halts the frame loop and cleans up resources.
  */
 export async function startFrameLoop(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
-  onMetrics?: (fps: number, ms: number) => void
+  onMetrics?: (fps: number, ms: number) => void,
+  precision: Precision = 'float32'
 ): Promise<() => void> {
+  const isF16 = precision === 'float16';
+
   // Acquire WebGPU device
   const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter?.requestDevice();
+  if (adapter === null) {
+    throw new Error('no WebGPU adapter');
+  }
+
+  const hasF16 = adapter.features.has('shader-f16');
+  if (isF16 && !hasF16) {
+    throw new Error('shader-f16 feature is not supported on this device');
+  }
+
+  const device = await adapter.requestDevice({
+    requiredFeatures: isF16 ? ['shader-f16'] : [],
+  });
 
   if (device === undefined) {
     throw new Error('no WebGPU device');
@@ -78,9 +102,11 @@ export async function startFrameLoop(
 
   // Load model program descriptor and weights
   const base = import.meta.env.BASE_URL;
+  const programFile = isF16 ? 'program-fp16.json' : 'program.json';
+  const weightsFile = isF16 ? 'weights-fp16.bin' : 'weights.bin';
   const [programRes, weightsRes] = await Promise.all([
-    fetch(`${base}assets/depthart/program.json`),
-    fetch(`${base}assets/depthart/weights.bin`),
+    fetch(`${base}assets/depthart/${programFile}`),
+    fetch(`${base}assets/depthart/${weightsFile}`),
   ]);
 
   if (!programRes.ok || !weightsRes.ok) {
@@ -92,15 +118,16 @@ export async function startFrameLoop(
 
   // Record the compute pipeline
   const ctx = new WgpuExecutionContext(device);
-  const inp = ctx.tensor('float32', [1, 3, ...size]);
-  const out = ctx.tensor('float32', [1, 1, ...size]);
+  const dtype = isF16 ? 'float16' : 'float32';
+  const inp = ctx.tensor(dtype, [1, 3, ...size]);
+  const out = ctx.tensor(dtype, [1, 1, ...size]);
   const statsBuffer = ctx.storageBuffer(16);
   ctx
-    .recordShader(preprocess, [vidTexture, inp])
+    .recordShader(isF16 ? preprocessF16 : preprocess, [vidTexture, inp])
     .recordProgram(program, weights, [inp, out])
     .recordShader(clearStats, [statsBuffer])
-    .recordShader(depthStats, [out, statsBuffer])
-    .recordShader(drawDepth, [out, statsBuffer, resTexture]);
+    .recordShader(isF16 ? depthStatsF16 : depthStats, [out, statsBuffer])
+    .recordShader(isF16 ? drawDepthF16 : drawDepth, [out, statsBuffer, resTexture]);
 
   let running = true;
   let smoothedMs = 0;

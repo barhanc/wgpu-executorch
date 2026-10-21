@@ -280,3 +280,142 @@ export const drawDetections: Shader<[GPUTexture, GPUTexture, GPUBuffer, GPUBuffe
     });
   },
 };
+
+/**
+ * Preprocess compute shader for FP16: reads normalized [0, 1] RGB texels from the video
+ * texture and unpacks them into planar NCHW f16 elements.
+ */
+export const preprocessF16: Shader<[GPUTexture, Tensor]> = {
+  name: 'yolo.preprocess.f16',
+  code: /* wgsl */ `
+    enable f16;
+
+    @group(0) @binding(0) var vid_tex: texture_2d<f32>;
+    @group(0) @binding(1) var<storage, read_write> output: array<f16>;
+
+    @compute @workgroup_size(16, 16)
+    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+      let dims = textureDimensions(vid_tex);
+      if (gid.x >= dims.x || gid.y >= dims.y) {
+        return;
+      }
+
+      // Convert interleaved RGBA texel to planar NCHW channels
+      let pixel = textureLoad(vid_tex, vec2<i32>(gid.xy), 0);
+      let hw = dims.x * dims.y;
+      let offset = gid.y * dims.x + gid.x;
+
+      output[offset] = f16(pixel.r);
+      output[hw + offset] = f16(pixel.g);
+      output[2u * hw + offset] = f16(pixel.b);
+    }
+  `,
+  recordIn(ctx, [vidTexture, inp]) {
+    const bundle = createComputeBundle(ctx.device, preprocessF16.code as string, [
+      { binding: 0, resource: vidTexture.createView() },
+      { binding: 1, buffer: inp.buffer },
+    ]);
+
+    ctx.addDispatch({
+      pipeline: bundle.pipeline,
+      bindGroup: bundle.bindGroup,
+      workgroupCountX: Math.ceil(vidTexture.width / 16),
+      workgroupCountY: Math.ceil(vidTexture.height / 16),
+    });
+  },
+};
+
+/**
+ * Detection compaction compute shader for FP16 predictions.
+ */
+export const compactDetectionsF16: Shader<[Tensor, GPUBuffer, GPUBuffer]> = {
+  name: 'yolo.compact_detections.f16',
+  code: /* wgsl */ `
+    enable f16;
+
+    @group(0) @binding(0) var<storage, read> preds: array<f16>;
+    @group(0) @binding(1) var<storage, read_write> counter: array<atomic<u32>>;
+    @group(0) @binding(2) var<storage, read_write> dets: array<f32>;
+
+    override wg_size: u32 = 256;
+    override stride_x: u32 = 4294967295u; // = count_x * wg_size; set by host for 2D-spill
+    override conf: f32 = 0.5;
+    override max_det: u32 = 64;
+    override num_anchors: u32 = 8400;
+    override num_classes: u32 = 80;
+
+    @compute @workgroup_size(wg_size)
+    fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+      let a = gid.y * stride_x + gid.x;
+      if (a >= num_anchors) {
+        return;
+      }
+
+      // Best class over the anchor's score channel slice
+      var best: f32 = 0.0;
+      var best_class: u32 = 0u;
+      for (var c: u32 = 0u; c < num_classes; c = c + 1u) {
+        let s = f32(preds[(4u + c) * num_anchors + a]);
+        if (s > best) {
+          best = s;
+          best_class = c;
+        }
+      }
+      if (best < conf) {
+        return;
+      }
+
+      let slot = atomicAdd(&counter[0], 1u);
+      if (slot >= max_det) {
+        return;
+      }
+      let b = slot * 6u;
+      dets[b] = f32(preds[a]);
+      dets[b + 1u] = f32(preds[num_anchors + a]);
+      dets[b + 2u] = f32(preds[2u * num_anchors + a]);
+      dets[b + 3u] = f32(preds[3u * num_anchors + a]);
+      dets[b + 4u] = best;
+      dets[b + 5u] = f32(best_class);
+    }
+  `,
+  recordIn(ctx, [preds, counterBuffer, detsBuffer]) {
+    if (preds.dtype !== 'float16') {
+      throw new Error('yolo.compact_detections.f16: predictions must be float16');
+    }
+
+    const wgSize = 256;
+    const numAnchors = preds.shape[2];
+    const numClasses = preds.shape[1] - 4;
+    const totalWorkgroups = Math.ceil(numAnchors / wgSize);
+    const workgroupCountX = Math.min(totalWorkgroups, 65535);
+
+    /* eslint-disable camelcase, @typescript-eslint/naming-convention -- WGSL override names */
+    const constants = {
+      wg_size: wgSize,
+      stride_x: workgroupCountX * wgSize,
+      conf: CONF_THRESHOLD,
+      max_det: MAX_DETECTIONS,
+      num_anchors: numAnchors,
+      num_classes: numClasses,
+    };
+    /* eslint-enable camelcase, @typescript-eslint/naming-convention */
+
+    const bundle = createComputeBundle(
+      ctx.device,
+      compactDetectionsF16.code as string,
+      [
+        { binding: 0, buffer: preds.buffer },
+        { binding: 1, buffer: counterBuffer },
+        { binding: 2, buffer: detsBuffer },
+      ],
+      constants
+    );
+
+    ctx.addDispatch({
+      pipeline: bundle.pipeline,
+      bindGroup: bundle.bindGroup,
+      workgroupCountX,
+      workgroupCountY: Math.ceil(totalWorkgroups / workgroupCountX),
+    });
+  },
+};
