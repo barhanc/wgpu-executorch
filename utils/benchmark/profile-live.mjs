@@ -1,4 +1,4 @@
-// Usage: node utils/benchmark/profile-live.mjs [results.json]
+// Usage: node utils/benchmark/profile-live.mjs [--controlled] [--no-timestamps] [results.json]
 // Starts its own local Vite server and dedicated headless Chrome profile. It
 // never attaches to, closes, or changes an existing browser process/profile.
 import { execFileSync, spawn } from 'node:child_process';
@@ -8,9 +8,16 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { profileLivePipeline } from './profile-live.browser.mjs';
+import { profilePipelineStages } from './profile-stages.browser.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const output = resolve(process.argv[2] ?? join(repo, 'utils/benchmark/pipeline-results.json'));
+const controlled = process.argv.includes('--controlled');
+const timestamps = !process.argv.includes('--no-timestamps');
+if (!controlled && !timestamps) throw new Error('--no-timestamps requires --controlled');
+const outputPath = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
+const output = resolve(
+  outputPath ?? join(repo, `utils/benchmark/${controlled ? 'stage' : 'pipeline'}-results.json`)
+);
 const candidates = process.env.WGPU_CHROME
   ? [process.env.WGPU_CHROME]
   : process.platform === 'darwin'
@@ -36,8 +43,9 @@ let browser;
 let ws;
 const report = {
   baseline: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim(),
-  method:
-    'Instrument actual example loops with CPU clocks and GPU pass timestamps. Synthetic video; no camera permissions. Warmup frames excluded. Configurations run sequentially; model clock variation prevents interpreting total frame differences as presentation speedups.',
+  method: controlled
+    ? 'Single-page controlled stage ablation; shuffled paired rounds, same device and model inputs. When enabled, GPU timestamp readback occurs outside wall timer. Additional sustained ABBA blocks compare continuous submissions and video-paced presentation.'
+    : 'Instrument actual example loops with CPU clocks and GPU pass timestamps. Synthetic video; no camera permissions. Warmup frames excluded. Configurations run sequentially; model clock variation prevents interpreting total frame differences as presentation speedups.',
   warning:
     'Do not attribute frame-minus-model time entirely to pre/post shaders: CPU handling, GPU copies, presentation, queue/browser scheduling and callback delivery also contribute. Forced detections include a small diagnostic setup dispatch in postprocessing.',
   results: [],
@@ -131,14 +139,16 @@ try {
   for (const task of ['depth-estimation', 'yolo26-detection'])
     for (const precision of ['float32', 'float16'])
       configurations.push({ task, precision, presentation: 'current' });
-  configurations.push({
-    task: 'yolo26-detection',
-    precision: 'float16',
-    presentation: 'current',
-    detections: 64,
-  });
-  for (const task of ['depth-estimation', 'yolo26-detection'])
-    configurations.push({ task, precision: 'float16', presentation: 'preferred' });
+  if (!controlled)
+    configurations.push({
+      task: 'yolo26-detection',
+      precision: 'float16',
+      presentation: 'current',
+      detections: 64,
+    });
+  if (!controlled)
+    for (const task of ['depth-estimation', 'yolo26-detection'])
+      configurations.push({ task, precision: 'float16', presentation: 'preferred' });
   for (const config of configurations) {
     await call('Page.navigate', { url });
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -146,11 +156,12 @@ try {
       reportEndpoint: '/api/results',
       ...config,
       repo: repo.replaceAll('\\', '/'),
-      warmups: 30,
-      samples: 80,
+      warmups: controlled ? 8 : 30,
+      samples: controlled ? 61 : 80,
+      timestamps,
     };
     const response = await call('Runtime.evaluate', {
-      expression: `(${profileLivePipeline.toString()})(${JSON.stringify(options)})`,
+      expression: `(${(controlled ? profilePipelineStages : profileLivePipeline).toString()})(${JSON.stringify(options)})`,
       awaitPromise: true,
       returnByValue: true,
     });
@@ -167,6 +178,8 @@ try {
         presentation: result.presentation,
         detections: result.detections,
         medians: result.medians,
+        pairedDeltas: result.pairedDeltas,
+        sustained: result.sustained?.map(({ name, medians }) => ({ name, medians })),
       })
     );
   }
