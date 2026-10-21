@@ -167,10 +167,10 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   const is1x1Vec4 =
     is1x1 && ic % 4 === 0 && (expectedHout * expectedWout) % 4 === 0 && oc % 4 === 0;
   const is1x1Tile64 =
-    is1x1Vec4 && n === 1 && oc >= 64 && expectedHout * expectedWout >= 64 && ic >= 16;
+    is1x1Vec4 && n === 1 && oc >= 16 && expectedHout * expectedWout >= 64 && ic >= 16;
 
   const isDenseTile64 =
-    groups === 1 && oc >= 64 && n * expectedHout * expectedWout >= 64 && (ic * kh * kw) % 4 === 0;
+    groups === 1 && oc >= 16 && n * expectedHout * expectedWout >= 64 && (ic * kh * kw) % 4 === 0;
 
   const isDepthwise =
     groups === oc && ic === oc && icPerGroup === 1 && kh * kw <= 49 && n * oc <= 65535;
@@ -198,9 +198,9 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvWithClampArgs): void {
   let constants: Record<string, number>;
 
   if (isDepthwise) {
-    // Spatial 16x16 workgroup per (batch, oc) channel slice
-    workgroupCountX = Math.ceil(expectedWout / 16);
-    workgroupCountY = Math.ceil(expectedHout / 16);
+    // Spatial 16x16 workgroup per (batch, oc) channel slice with 2x2 register tiling (32x32 per workgroup)
+    workgroupCountX = Math.ceil(expectedWout / 32);
+    workgroupCountY = Math.ceil(expectedHout / 32);
     workgroupCountZ = n * oc;
     constants = {};
   } else if (groups !== 1) {

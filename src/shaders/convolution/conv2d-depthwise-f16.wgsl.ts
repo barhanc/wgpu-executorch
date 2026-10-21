@@ -1,6 +1,7 @@
 /**
  * WGSL compute shader for float16 depthwise convolution (up to 7x7 kernels).
- * Uses 2D spatial workgroup layout (16x16) and workgroup-shared cached weights and bias.
+ * Uses 2D spatial workgroup layout (16x16) with 2x2 register tiling per thread (32x32 per workgroup).
+ * Weights and bias are cached in shared memory then private registers to avoid bank conflicts.
  * Requires WebGPU shader-f16 feature.
  *
  * Source: wgpu-executorch (https://github.com/barhanc/wgpu-executorch)
@@ -48,34 +49,88 @@ fn main(
   }
   workgroupBarrier();
 
-  let ow = gid.x;
-  let oh = gid.y;
+  let ow0 = gid.x * 2u;
+  let oh0 = gid.y * 2u;
 
-  if (ow >= params.OW || oh >= params.OH || b >= params.B) {
+  if (ow0 >= params.OW || oh0 >= params.OH || b >= params.B) {
     return;
   }
 
-  var acc = bias_val;
-  let ih0 = i32(oh) * i32(params.sH) - i32(params.pH);
-  let iw0 = i32(ow) * i32(params.sW) - i32(params.pW);
+  var acc00 = bias_val;
+  var acc01 = bias_val;
+  var acc10 = bias_val;
+  var acc11 = bias_val;
+
+  let sH = i32(params.sH);
+  let sW = i32(params.sW);
+  let dH = i32(params.dH);
+  let dW = i32(params.dW);
   let iH = i32(params.IH);
   let iW = i32(params.IW);
+
+  let ih0_base = i32(oh0) * sH - i32(params.pH);
+  let iw0_base = i32(ow0) * sW - i32(params.pW);
   let in_base = (b * params.IC + oc) * params.IH;
 
-  for (var kh: u32 = 0u; kh < params.KH; kh = kh + 1u) {
-    let ih = ih0 + i32(kh) * i32(params.dH);
-    if (ih >= 0 && ih < iH) {
-      let row_offset = (in_base + u32(ih)) * params.IW;
-      let w_offset = kh * params.KW;
-      for (var kw: u32 = 0u; kw < params.KW; kw = kw + 1u) {
-        let iw = iw0 + i32(kw) * i32(params.dW);
-        if (iw >= 0 && iw < iW) {
-          acc = acc + input[row_offset + u32(iw)] * w_tile[w_offset + kw];
+  var w_reg: array<f16, 49>;
+  for (var i = 0u; i < khw; i = i + 1u) {
+    w_reg[i] = w_tile[i];
+  }
+
+  for (var kh = 0u; kh < params.KH; kh = kh + 1u) {
+    let ih0 = ih0_base + i32(kh) * dH;
+    let ih1 = ih0 + sH;
+    let valid_h0 = ih0 >= 0 && ih0 < iH;
+    let valid_h1 = ih1 >= 0 && ih1 < iH;
+
+    var row_offset0: u32 = 0u;
+    if (valid_h0) {
+      row_offset0 = (in_base + u32(ih0)) * params.IW;
+    }
+    var row_offset1: u32 = 0u;
+    if (valid_h1) {
+      row_offset1 = (in_base + u32(ih1)) * params.IW;
+    }
+    let w_offset = kh * params.KW;
+
+    for (var kw = 0u; kw < params.KW; kw = kw + 1u) {
+      let iw0 = iw0_base + i32(kw) * dW;
+      let iw1 = iw0 + sW;
+      let valid_w0 = iw0 >= 0 && iw0 < iW;
+      let valid_w1 = iw1 >= 0 && iw1 < iW;
+      let w_val = w_reg[w_offset + kw];
+
+      if (valid_h0) {
+        if (valid_w0) {
+          acc00 = acc00 + input[row_offset0 + u32(iw0)] * w_val;
+        }
+        if (valid_w1) {
+          acc01 = acc01 + input[row_offset0 + u32(iw1)] * w_val;
+        }
+      }
+      if (valid_h1) {
+        if (valid_w0) {
+          acc10 = acc10 + input[row_offset1 + u32(iw0)] * w_val;
+        }
+        if (valid_w1) {
+          acc11 = acc11 + input[row_offset1 + u32(iw1)] * w_val;
         }
       }
     }
   }
 
-  out[((b * params.OC + oc) * params.OH + oh) * params.OW + ow] = acc;
+  let out_ch_base = (b * params.OC + oc) * params.OH;
+  let out_row0 = (out_ch_base + oh0) * params.OW;
+  out[out_row0 + ow0] = acc00;
+  if (ow0 + 1u < params.OW) {
+    out[out_row0 + ow0 + 1u] = acc01;
+  }
+  if (oh0 + 1u < params.OH) {
+    let out_row1 = (out_ch_base + oh0 + 1u) * params.OW;
+    out[out_row1 + ow0] = acc10;
+    if (ow0 + 1u < params.OW) {
+      out[out_row1 + ow0 + 1u] = acc11;
+    }
+  }
 }
 `;
