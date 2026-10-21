@@ -9,7 +9,10 @@ import { tasks } from './tasks';
 /** Metrics tooltip lines shared by every task: `[token, description]` pairs. */
 const METRICS_TIP: readonly (readonly [token: string, description: string])[] = [
   ['FPS', 'live processing rate: video frames processed per second (camera-paced)'],
-  ['MS', 'per-frame inference time to GPU completion; 1000 / MS is the FPS ceiling'],
+  [
+    'MS',
+    'frame processing time including crop/upload, model, rendering and GPU completion notification',
+  ],
 ];
 
 const app = document.getElementById('app') as HTMLElement;

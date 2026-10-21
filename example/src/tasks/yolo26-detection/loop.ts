@@ -31,7 +31,7 @@ function onNextVideoFrame(video: HTMLVideoElement, callback: (now: number) => vo
  *
  * @param video The playing camera video to source frames from.
  * @param canvas The canvas element to render the graded video output to.
- * @param onMetrics Optional callback invoked with smoothed FPS and inference time in ms.
+ * @param onMetrics Optional callback invoked with smoothed FPS and frame processing time in ms.
  * @param precision Selected floating-point precision ('float32' or 'float16').
  * @returns A stop function that halts the frame loop and cleans up resources.
  */
@@ -88,8 +88,8 @@ export async function startFrameLoop(
   const vidTexture = device.createTexture({ size, format: 'rgba8unorm', usage: vidUsage });
   const resTexture = device.createTexture({ size, format: 'rgba8unorm', usage: resUsage });
 
-  // Frame-completion fence: a 16-byte copy whose mapAsync resolves exactly
-  // when the frame's GPU work has landed.
+  // Frame-completion fence: mapping this copy waits for the frame's GPU work.
+  // Promise delivery also includes browser scheduling latency.
   const fenceSrc = device.createBuffer({ size: 16, usage: GPUBufferUsage.COPY_SRC });
   const fenceDst = device.createBuffer({
     size: 16,
@@ -171,8 +171,8 @@ export async function startFrameLoop(
     encoder.copyBufferToBuffer(fenceSrc, 0, fenceDst, 0, 16);
     device.queue.submit([encoder.finish()]);
 
-    // Inference time runs to the fence: mapAsync resolves exactly when the
-    // copy lands, unlike onSubmittedWorkDone which can lag to a frame boundary.
+    // Frame time includes crop/upload, GPU work and completion notification.
+    // The fence wait alone is not a measurement of shader execution time.
     void fenceDst.mapAsync(GPUMapMode.READ).then(
       () => {
         if (!running) return;

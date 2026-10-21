@@ -9,6 +9,7 @@
     "example": "vite example",
     "build:example": "vite build example",
     "benchmark:web": "vite utils/benchmark",
+    "benchmark:live": "node utils/benchmark/profile-live.mjs",
     "format": "prettier --write .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
