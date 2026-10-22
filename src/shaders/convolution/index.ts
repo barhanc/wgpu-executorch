@@ -11,6 +11,10 @@ import { SHADER_CONV2D_1X1_64X64 } from './conv2d-1x1-tile64.wgsl';
 import { SHADER_CONV2D_1X1_64X64_F16 } from './conv2d-1x1-tile64-f16.wgsl';
 import { SHADER_CONV2D_TILE64 } from './conv2d-tile64.wgsl';
 import { SHADER_CONV2D_TILE32 } from './conv2d-tile32.wgsl';
+import { SHADER_CONV2D_DIRECT_SMALL } from './conv2d-direct-small.wgsl';
+import { SHADER_CONV2D_DIRECT_SMALL_F16 } from './conv2d-direct-small-f16.wgsl';
+import { SHADER_CONV2D_TILE8 } from './conv2d-tile8.wgsl';
+import { SHADER_CONV2D_TILE8_F16 } from './conv2d-tile8-f16.wgsl';
 import { SHADER_CONV2D_TILE16 } from './conv2d-tile16.wgsl';
 import { SHADER_CONV2D_TILE16_F16 } from './conv2d-tile16-f16.wgsl';
 import { SHADER_CONV2D_1X1_TILE32 } from './conv2d-1x1-tile32.wgsl';
@@ -168,7 +172,8 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
 
   // Variant selection: 1x1 convolutions use the pointwise GEMM kernel (no im2col),
   // with 128-bit vec4 memory optimization when dimensions are divisible by 4.
-  // General dense convolutions use implicit-im2col tiled GEMM, grouped/depthwise
+  // Short 3x3 filters have a shape-qualified direct path. Other dense convolutions
+  // use implicit-im2col tiled GEMM, grouped/depthwise
   // convs through the direct kernel, and transposed convs through the gather kernel.
   const is1x1 =
     !transposed &&
@@ -183,7 +188,45 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
   const is1x1Vec4 = is1x1 && ic % 4 === 0 && (oh * ow) % 4 === 0 && oc % 4 === 0;
   const is1x1Tile32 = is1x1Vec4 && b === 1 && oc <= 32 && oh * ow >= 64 && ic >= 16;
   const is1x1Tile64 = is1x1Vec4 && b === 1 && oc > 32 && oh * ow >= 64 && ic >= 16;
-  // Smaller row tiles avoid unused channels; large spatial grids supply enough workgroups.
+  // Stage short RGB filters once instead of expanding them into GEMM input tiles.
+  const isRgb =
+    !transposed &&
+    groups === 1 &&
+    ic === 3 &&
+    kh === 3 &&
+    kw === 3 &&
+    sH === 2 &&
+    sW === 2 &&
+    pH === 1 &&
+    pW === 1 &&
+    dH === 1 &&
+    dW === 1 &&
+    oc >= 8 &&
+    oc <= 16 &&
+    oh * ow >= 4096;
+  // Narrow tiles are limited to the same-padding stride/dilation families
+  // covered by the regression mesh. Other geometries retain their old route.
+  const isNarrowGeometry =
+    sH === sW &&
+    (sH === 1 || sH === 2) &&
+    dH === dW &&
+    (dH === 1 || dH === 2) &&
+    pH === dH &&
+    pW === dW;
+  const isDenseTile8 =
+    !transposed &&
+    groups === 1 &&
+    kh === 3 &&
+    kw === 3 &&
+    isNarrowGeometry &&
+    oc >= 4 &&
+    oc <= 8 &&
+    b * oh * ow >= 4096 &&
+    ic % 4 === 0;
+  const isDirectSmall =
+    (isRgb || (isDenseTile8 && ic <= 16 && dH === 1)) &&
+    b <= device.limits.maxComputeWorkgroupsPerDimension &&
+    Math.ceil((oh * ow) / 128) <= device.limits.maxComputeWorkgroupsPerDimension;
   const isDenseTile16 =
     !transposed &&
     groups === 1 &&
@@ -236,6 +279,10 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
       code = isF16 ? SHADER_CONV2D_1X1_TILE32_F16 : SHADER_CONV2D_1X1_TILE32;
     } else if (is1x1Tile64) {
       code = isF16 ? SHADER_CONV2D_1X1_64X64_F16 : SHADER_CONV2D_1X1_64X64;
+    } else if (isDirectSmall) {
+      code = isF16 ? SHADER_CONV2D_DIRECT_SMALL_F16 : SHADER_CONV2D_DIRECT_SMALL;
+    } else if (isDenseTile8) {
+      code = isF16 ? SHADER_CONV2D_TILE8_F16 : SHADER_CONV2D_TILE8;
     } else if (isDenseTile16) {
       code = isF16 ? SHADER_CONV2D_TILE16_F16 : SHADER_CONV2D_TILE16;
     } else if (isDenseTile32) {
@@ -279,6 +326,31 @@ function recordIn(ctx: WgpuExecutionContext, args: ConvolutionArgs): void {
     workgroupCountX = Math.ceil((oh * ow) / 64);
     workgroupCountY = Math.ceil(oc / 64);
     constants = {};
+  } else if (isDirectSmall) {
+    workgroupCountX = Math.ceil((oh * ow) / 128);
+    workgroupCountY = Math.ceil(oc / 4);
+    workgroupCountZ = b;
+    /* eslint-disable camelcase, @typescript-eslint/naming-convention -- WGSL override names */
+    constants = {
+      input_h: ih,
+      input_w: iw,
+      output_h: oh,
+      output_w: ow,
+      channels: ic,
+      filter_count: ic * 9,
+      stride_h: sH,
+      stride_w: sW,
+      pad_h: pH,
+      pad_w: pW,
+      dilation_h: dH,
+      dilation_w: dW,
+    };
+    /* eslint-enable camelcase, @typescript-eslint/naming-convention */
+  } else if (isDenseTile8) {
+    workgroupCountX = Math.ceil((b * oh * ow) / 64);
+    workgroupCountY = Math.ceil(oc / 8);
+    // eslint-disable-next-line camelcase, @typescript-eslint/naming-convention
+    constants = { kernel_h: kh, kernel_w: kw };
   } else if (isDenseTile16) {
     // 16x64 register-tiled GEMM for narrow dense 3x3 convolution.
     workgroupCountX = Math.ceil((b * oh * ow) / 64);

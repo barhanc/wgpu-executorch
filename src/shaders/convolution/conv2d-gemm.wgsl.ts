@@ -132,7 +132,7 @@ fn main(
           let ih = col_ih_base[kk] + kh_dH;
           let iw = col_iw_base[kk] + kw_dW;
           if (ih >= 0 && ih < iH && iw >= 0 && iw < iW) {
-            let ch_idx = col_b[kk] + k_ic;
+            let ch_idx = col_b_ic[kk] + k_ic;
             b_row[kk] = input[ch_idx * in_hw + u32(ih) * in_w + u32(iw)];
           } else {
             b_row[kk] = 0.0;
