@@ -1,0 +1,17 @@
+Hugging Face WebGPU Conv adaptation
+Upstream: webgpu-kernels/ai.onnx.Conv
+Revision: 7b19a1ea4fd2abef3203991ca933405f12cfcc62
+Source: https://huggingface.co/kernels/webgpu-kernels/ai.onnx.Conv/resolve/7b19a1ea4fd2abef3203991ca933405f12cfcc62/build/webgpu/conv-1x1-gemm-tiled-reg.wgsl.jinja
+Upstream shader: Apache-2.0 (see LICENSE and upstream metadata.json).
+Integration code: MIT, https://github.com/barhanc/wgpu-executorch
+Changes: bind existing buffers; guard optional bias via uniform; expose shape
+geometry as pipeline constants. Shader load/compute/store loops are retained.
+Generated variants use published 64x64/32x64, 8x4-per-thread register layouts,
+K=16/32 and carried implicit gathering (IMPLICIT_TILED_GATHER_MODE=1), no split-K or activation/residual fusion. This is not the entire HF
+loader or route-selection policy. The separately rendered subgroup-matrix
+adaptation is from conv-1x1-subgroup-matrix.wgsl.jinja at the same revision:
+aligned 1x1 and implicit 3x3, f32 accumulation, 8x8 hardware matrices,
+32/64-row output tiles, 32-lane subgroups; no split-K or fused activation.
+Original WGSL templates are included unmodified; metadata JSON is reformatted. Generated derivatives
+change bindings, optional-bias guarding and literal shapes into pipeline constants.
+Manifest: https://huggingface.co/kernels/webgpu-kernels/ai.onnx.Conv/resolve/7b19a1ea4fd2abef3203991ca933405f12cfcc62/build/webgpu/manifest.json

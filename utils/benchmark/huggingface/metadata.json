@@ -1,0 +1,174 @@
+{
+  "name": "ai.onnx.Conv",
+  "id": "_ai_onnx_conv_webgpu_425dc7b",
+  "version": 1,
+  "license": "Apache-2.0",
+  "backend": { "type": "webgpu" },
+  "digest": {
+    "algorithm": "sha256",
+    "files": {
+      "bench.json": "qQlQzLmos636YZMqlseiLZNw3VMjVExXhvQhIkhNmso=",
+      "conv-1x1-channel-reduce.wgsl.jinja": "Ug2iTybBtLS8dnr7KOGbxUYKidE0/sb7LGLeAP3xka8=",
+      "conv-1x1-gemm-tiled-reg.wgsl.jinja": "fqy1AlbukRB6+EsP4NT8IsBbiAYWtxE7o8z87QN7nHI=",
+      "conv-1x1-gemm-tiled.wgsl.jinja": "mQWnnhk9Xlj20YcMc+6sQBuy67ZhdkgPUSdYgtauDaY=",
+      "conv-1x1-subgroup-matrix.wgsl.jinja": "/M/DUaLDk2rBCojLxieYQxQhpMei79mv4iM0shwJbl8=",
+      "conv-direct-nd.wgsl.jinja": "qooloadvj03r5vD7sSuCe1xGrWeuCxNx7B4lUjilOGQ=",
+      "conv-direct-unrolled.wgsl.jinja": "GsmGTy9UvercDDC0vNc3OOve9xcRtg2Hj9rSpx9YOSc=",
+      "conv-im2col-ncdhw.wgsl.jinja": "vQtnzeEKC2wm23+kwcaWoX3VSaJSqno18ACe3w3trhI=",
+      "conv-im2col-nchw.wgsl.jinja": "IRpmtpeVQsLE6ud+Sf1230XaZVS1dxDtTZuSDwU3P8s=",
+      "conv-splitk-reduce.wgsl.jinja": "jPCiZlPWzoQEoa9+ZwfZdSOHH+/hSYknvRFHKMvgkKM=",
+      "conv1d-tiled-reg.wgsl.jinja": "HvWuECHIzxqPrIyvfdlljhdOXpwzZo0jvAYuYDY+3kM=",
+      "conv2d-grouped-large-w4.wgsl.jinja": "mt2+nqnbFfJMac9s3sAsjTZlySD9VJFE+gHnkToVwt8=",
+      "manifest.json": "RtFRWBQdJ7bpJaP2G26O3a2GIKy1QaRpfZQqTFFmoYs=",
+      "test.json": "Y5+ejG2R11fFhIYo5ExoKSNeCtn278UgO3/JQgG1bY0="
+    }
+  },
+  "provenance": { "kernel": { "sha": "6fdf6301e2bbcc2f03bf1eaf493b7ad55ef33afc", "dirty": false } },
+  "webgpu": {
+    "manifestSpec": "2.1",
+    "variants": {
+      "ncw1d": ["conv-direct-nd.wgsl.jinja"],
+      "ncw1d_bias": ["conv-direct-nd.wgsl.jinja"],
+      "ncdhw3d": ["conv-direct-nd.wgsl.jinja"],
+      "ncdhw3d_bias": ["conv-direct-nd.wgsl.jinja"],
+      "nchw2d": ["conv-direct-nd.wgsl.jinja"],
+      "nchw2d_bias": ["conv-direct-nd.wgsl.jinja"],
+      "grouped_large_kernel_w4": ["conv2d-grouped-large-w4.wgsl.jinja"],
+      "grouped_large_kernel_w4_bias": ["conv2d-grouped-large-w4.wgsl.jinja"],
+      "grouped_large_kernel_w4_tail": ["conv2d-grouped-large-w4.wgsl.jinja"],
+      "grouped_large_kernel_w4_tail_bias": ["conv2d-grouped-large-w4.wgsl.jinja"],
+      "grouped_large_kernel_w4_dilated_lanes": ["conv2d-grouped-large-w4.wgsl.jinja"],
+      "grouped_large_kernel_w4_dilated_lanes_bias": ["conv2d-grouped-large-w4.wgsl.jinja"],
+      "pointwise_channel_reduce": ["conv-1x1-channel-reduce.wgsl.jinja"],
+      "pointwise_channel_reduce_bias": ["conv-1x1-channel-reduce.wgsl.jinja"],
+      "gemm_1x1_subgroup_matrix": ["conv-1x1-subgroup-matrix.wgsl.jinja"],
+      "gemm_1x1_subgroup_matrix_bias": ["conv-1x1-subgroup-matrix.wgsl.jinja"],
+      "im2col_gemm_subgroup_matrix": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_gemm_subgroup_matrix_bias": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_direct_f32_subgroup_matrix": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_direct_f16_subgroup_matrix": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_direct_f32_subgroup_matrix_bias": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_direct_f16_subgroup_matrix_bias": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "implicit_im2col_subgroup_matrix": ["conv-1x1-subgroup-matrix.wgsl.jinja"],
+      "implicit_im2col_subgroup_matrix_bias": ["conv-1x1-subgroup-matrix.wgsl.jinja"],
+      "implicit_im2col_subgroup_matrix_splitk": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-splitk-reduce.wgsl.jinja"
+      ],
+      "implicit_im2col_subgroup_matrix_bias_splitk": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-splitk-reduce.wgsl.jinja"
+      ],
+      "im2col3d_gemm_subgroup_matrix": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-ncdhw.wgsl.jinja"
+      ],
+      "im2col3d_gemm_subgroup_matrix_bias": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-ncdhw.wgsl.jinja"
+      ],
+      "im2col3d_gemm_tiled_reg": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-im2col-ncdhw.wgsl.jinja"
+      ],
+      "im2col3d_gemm_tiled": ["conv-1x1-gemm-tiled.wgsl.jinja", "conv-im2col-ncdhw.wgsl.jinja"],
+      "im2col3d_gemm_tiled_bias_reg": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-im2col-ncdhw.wgsl.jinja"
+      ],
+      "im2col3d_gemm_tiled_bias": [
+        "conv-1x1-gemm-tiled.wgsl.jinja",
+        "conv-im2col-ncdhw.wgsl.jinja"
+      ],
+      "im2col_gemm_subgroup_matrix_padded": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_gemm_subgroup_matrix_padded_bias": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_gemm_subgroup_matrix_padded_splitk": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja",
+        "conv-splitk-reduce.wgsl.jinja"
+      ],
+      "im2col_gemm_subgroup_matrix_padded_bias_splitk": [
+        "conv-1x1-subgroup-matrix.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja",
+        "conv-splitk-reduce.wgsl.jinja"
+      ],
+      "implicit_im2col_tiled_bias_reg_m32": ["conv-1x1-gemm-tiled-reg.wgsl.jinja"],
+      "implicit_im2col_tiled_reg": ["conv-1x1-gemm-tiled-reg.wgsl.jinja"],
+      "implicit_im2col_tiled_bias_reg": ["conv-1x1-gemm-tiled-reg.wgsl.jinja"],
+      "implicit_im2col_tiled_reg_splitk": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-splitk-reduce.wgsl.jinja"
+      ],
+      "implicit_im2col_tiled_bias_reg_splitk": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-splitk-reduce.wgsl.jinja"
+      ],
+      "im2col_gemm_tiled_reg": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_gemm_tiled": ["conv-1x1-gemm-tiled.wgsl.jinja", "conv-im2col-nchw.wgsl.jinja"],
+      "im2col_gemm_tiled_bias_reg": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_gemm_tiled_bias": ["conv-1x1-gemm-tiled.wgsl.jinja", "conv-im2col-nchw.wgsl.jinja"],
+      "im2col_gemm_tiled_reg_f16_columns": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_gemm_tiled_f16_columns": [
+        "conv-1x1-gemm-tiled.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_gemm_tiled_bias_reg_f16_columns": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "im2col_gemm_tiled_bias_f16_columns": [
+        "conv-1x1-gemm-tiled.wgsl.jinja",
+        "conv-im2col-nchw.wgsl.jinja"
+      ],
+      "gemm_1x1_tiled_reg": ["conv-1x1-gemm-tiled-reg.wgsl.jinja"],
+      "gemm_1x1_tiled_bias_reg": ["conv-1x1-gemm-tiled-reg.wgsl.jinja"],
+      "gemm_1x1_tiled": ["conv-1x1-gemm-tiled.wgsl.jinja"],
+      "gemm_1x1_tiled_bias": ["conv-1x1-gemm-tiled.wgsl.jinja"],
+      "gemm_1x1_tiled_reg_splitk": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-splitk-reduce.wgsl.jinja"
+      ],
+      "gemm_1x1_tiled_bias_reg_splitk": [
+        "conv-1x1-gemm-tiled-reg.wgsl.jinja",
+        "conv-splitk-reduce.wgsl.jinja"
+      ],
+      "direct_unrolled": ["conv-direct-unrolled.wgsl.jinja"],
+      "direct_unrolled_bias": ["conv-direct-unrolled.wgsl.jinja"],
+      "conv1d_tiled_reg": ["conv1d-tiled-reg.wgsl.jinja"],
+      "conv1d_tiled_bias_reg": ["conv1d-tiled-reg.wgsl.jinja"]
+    }
+  }
+}

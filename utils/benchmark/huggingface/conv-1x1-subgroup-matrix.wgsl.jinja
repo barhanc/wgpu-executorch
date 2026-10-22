@@ -1,0 +1,495 @@
+// Batched subgroup-matrix product C[b] (M x N) = A (M x K) * B[b] (K x N).
+// A is row-major; B may be a direct matrix view, a materialized column matrix,
+// or an on-demand gather. Accumulation is f32. A configured epilogue may apply
+// bias or other output transforms after the full K reduction.
+//
+// Full 8x8 matrix loads require complete K/N tiles. The aligned path enforces
+// that geometry; `padded` zero-fills tails, and `implicitIm2col` gathers and
+// zero-fills directly from NCHW without materializing the column matrix.
+//
+// `splitK` assigns disjoint K ranges to workgroup_id.z. Each slice writes raw
+// sums to tile-padded [splitK,batch,M_PAD,N_PAD] scratch; a later pass combines
+// the slices and applies bias or an epilogue. Padded tail cells remain zero and
+// are never copied to the logical output.
+{% set directMatrixInputs = directMatrixInputs is defined and directMatrixInputs %}
+{% set fusedNarrowProjection = false %}
+{% set polyphase = false %}
+{% set implicit = implicitIm2col is defined and implicitIm2col %}
+{% set implicit3d = implicit and (convSpatialDims is defined and convSpatialDims == 3) %}
+{% set splitKValue = splitK if splitK is defined else 1 %}
+{% set splitKPartial = splitKValue > 1 %}
+{% set kLoopVar = "K_LOOP" if padded else "K" %}
+{% set nColsVar = "N_COLS" if padded else "N" %}
+{% set hasZ = false %}
+{% set hasActivation = false %}
+{% set convKernelH = convKernelH | default(0) %}
+{% set convKernelW = convKernelW | default(0) %}
+{% set convStrideH = convStrideH | default(0) %}
+{% set convStrideW = convStrideW | default(0) %}
+{% set convDilationH = convDilationH | default(0) %}
+{% set convDilationW = convDilationW | default(0) %}
+{% set convPadTop = convPadTop | default(0) %}
+{% set convPadLeft = convPadLeft | default(0) %}
+{% set convInH = convInH | default(0) %}
+{% set convInW = convInW | default(0) %}
+{% set convOutW = convOutW | default(0) %}
+{% set convInChannels = convInChannels | default(0) %}
+{% set convKernelD = convKernelD | default(0) %}
+{% set convStrideD = convStrideD | default(0) %}
+{% set convDilationD = convDilationD | default(0) %}
+{% set convPadFront = convPadFront | default(0) %}
+{% set convInD = convInD | default(0) %}
+{% set convOutH = convOutH | default(0) %}
+{% set nPadded = nPadded | default(0) %}
+{% set mPadded = mPadded | default(0) %}
+{% set kChunk = kChunk | default(0) %}
+{% set batchCount = batchCount | default(0) %}
+enable subgroups;
+{% if pinSubgroupSize32 %}
+enable subgroup_size_control;
+{% endif %}
+enable chromium_experimental_subgroup_matrix;
+diagnostic(off, chromium.subgroup_matrix_uniformity);
+
+{{ env.wgsl.resourceDeclarations }}
+{% set operandScalar = fScalar %}
+{% set accScalar = "f32" %}
+{% set useDirectMatrixStore = directMatrixStore is defined and directMatrixStore %}
+{% set tileRowsValue = tileRows if tileRows is defined else 32 %}
+{% set tileColsValue = 64 %}
+{% set workgroupThreadsValue = workgroupThreads if workgroupThreads is defined else 128 %}
+{% set subgroupRowsValue = subgroupRows if subgroupRows is defined else 2 %}
+{% set subRowsValue = (tileRowsValue / subgroupRowsValue)|int %}
+{% set subColsValue = 32 %}
+{% set bLoadWidth = (tileColsValue * 32 / workgroupThreadsValue)|int %}
+{% set bKChunks = (32 / bLoadWidth)|int %}
+
+const M: u32 = {{ M }}u;
+const K: u32 = {{ K }}u;
+{% if not (splitKPartial and padded) or implicit %}
+const N: u32 = {{ N }}u;
+{% endif %}
+{% if padded %}
+const K_LOOP: u32 = {{ kPadded }}u;
+{% endif %}
+{% if implicit %}
+const CONV_KERNEL_H: u32 = {{ convKernelH }}u;
+const CONV_KERNEL_W: u32 = {{ convKernelW }}u;
+{% if implicit3d %}
+const CONV_KERNEL_D: u32 = {{ convKernelD }}u;
+const CONV_KSIZE_HW: u32 = CONV_KERNEL_H * CONV_KERNEL_W;
+const CONV_KSIZE: u32 = CONV_KERNEL_D * CONV_KSIZE_HW;
+const CONV_STRIDE_D: u32 = {{ convStrideD }}u;
+const CONV_DILATION_D: u32 = {{ convDilationD }}u;
+const CONV_PAD_FRONT: i32 = {{ convPadFront }};
+const CONV_IN_D: i32 = {{ convInD }};
+const CONV_OUT_H: u32 = {{ convOutH }}u;
+{% else %}
+const CONV_KSIZE: u32 = CONV_KERNEL_H * CONV_KERNEL_W;
+{% endif %}
+const CONV_STRIDE_H: u32 = {{ convStrideH }}u;
+const CONV_STRIDE_W: u32 = {{ convStrideW }}u;
+const CONV_DILATION_H: u32 = {{ convDilationH }}u;
+const CONV_DILATION_W: u32 = {{ convDilationW }}u;
+const CONV_PAD_TOP: i32 = {{ convPadTop }};
+const CONV_PAD_LEFT: i32 = {{ convPadLeft }};
+const CONV_IN_H: i32 = {{ convInH }};
+const CONV_IN_W: i32 = {{ convInW }};
+const CONV_OUT_W: u32 = {{ convOutW }}u;
+{% if implicit3d %}
+// X is [batch, inChannels, inD, inH, inW]; the tile gather indexes it directly.
+const B_BATCH_STRIDE: u32 = {{ convInChannels }}u * u32(CONV_IN_D) * u32(CONV_IN_H) * u32(CONV_IN_W);
+{% else %}
+// X is [batch, inChannels, inH, inW]; the tile gather indexes it directly.
+const B_BATCH_STRIDE: u32 = {{ convInChannels }}u * u32(CONV_IN_H) * u32(CONV_IN_W);
+{% endif %}
+{% else %}
+{% if padded %}
+const N_COLS: u32 = {{ nPadded }}u;
+{% endif %}
+const B_BATCH_STRIDE: u32 = {{ kLoopVar }} * {{ nColsVar }};
+{% endif %}
+{% if not splitKPartial and not polyphase and not fusedNarrowProjection %}
+const C_BATCH_STRIDE: u32 = M * N;
+{% endif %}
+{% if splitKPartial %}
+const SPLIT_K: u32 = {{ splitKValue }}u;
+// Whole 32-wide K tiles per slice, rounded up, with the last slice clamped to
+// K_LOOP. This avoids padding K to a multiple of SPLIT_K times the tile width.
+// A slice entirely past K_LOOP runs zero iterations and stores zero
+// accumulators, which is the correct partial for an empty K range.
+const K_CHUNK: u32 = {{ kChunk }}u;
+const PARTIAL_ROWS: u32 = {{ mPadded }}u;
+const PARTIAL_COLS: u32 = {{ nPadded }}u;
+const PARTIAL_SLICE_STRIDE: u32 = {{ batchCount }}u * PARTIAL_ROWS * PARTIAL_COLS;
+{% endif %}
+const TILE_COLS: u32 = {{ tileColsValue }}u;
+const TILE_ROWS: u32 = {{ tileRowsValue }}u;
+const TILE_K: u32 = 32u;
+const SUB_COLS: u32 = {{ subColsValue }}u;
+const SUB_ROWS: u32 = {{ subRowsValue }}u;
+
+{% if not directMatrixInputs %}
+var<workgroup> tile_A: array<{{ operandScalar }}, {{ tileRowsValue }} * 32>;
+var<workgroup> tile_B: array<{{ operandScalar }}, {{ tileColsValue }} * 32>;
+{% endif %}
+{% if (not useDirectMatrixStore or padded) and not splitKPartial and not fusedNarrowProjection %}
+var<workgroup> scratch: array<array<array<{{ accScalar }}, 64>, 4>, {{ (workgroupThreadsValue / 32)|int }}>;
+
+{% endif %}
+{% if not directMatrixInputs %}
+fn loadSHMA(tile_base: u32, k_idx: u32, row: u32, c_idx: u32) {
+  let a_global = tile_base + row;
+  let col = c_idx * 8u;
+  for (var col_offset = 0u; col_offset < 8u; col_offset = col_offset + 1u) {
+    let k = k_idx + col + col_offset;
+    if (a_global < M{% if padded %} && k < K{% endif %}) {
+{% set A_PHASE = "" %}
+{% if operandScalar == "f16" %}
+      tile_A[row * TILE_K + col + col_offset] = f16(w[{{ A_PHASE }}a_global * K + k]);
+{% else %}
+      tile_A[row * TILE_K + col + col_offset] = f32(w[{{ A_PHASE }}a_global * K + k]);
+{% endif %}
+    } else {
+{% if operandScalar == "f16" %}
+      tile_A[row * TILE_K + col + col_offset] = 0.0h;
+{% else %}
+      tile_A[row * TILE_K + col + col_offset] = 0.0;
+{% endif %}
+    }
+  }
+}
+
+fn loadSHMB(b_base: u32, tile_base: u32, k_idx: u32, row: u32, c_idx: u32) {
+  let b_col = tile_base + row;
+  let col = c_idx * {{ bLoadWidth }}u;
+{% if implicit %}
+  // One output position per tile column, so its window origin is loop-invariant.
+{% if implicit3d %}
+  let id0 = i32((b_col / (CONV_OUT_W * CONV_OUT_H)) * CONV_STRIDE_D) - CONV_PAD_FRONT;
+  let ih0 = i32(((b_col / CONV_OUT_W) % CONV_OUT_H) * CONV_STRIDE_H) - CONV_PAD_TOP;
+{% else %}
+  let ih0 = i32((b_col / CONV_OUT_W) * CONV_STRIDE_H) - CONV_PAD_TOP;
+{% endif %}
+  let iw0 = i32((b_col % CONV_OUT_W) * CONV_STRIDE_W) - CONV_PAD_LEFT;
+  let in_column = b_col < N;
+  // k advances by exactly one per element, so the (in-channel, tap-row, tap-col)
+  // decomposition is CARRIED across the loop instead of recomputed: two divisions
+  // and two moduli per loaded element become one increment and one compare, with
+  // the source coordinates advanced by the dilation in step. Only the entry values
+  // divide, and their divisors are compile-time literals.
+  var k = k_idx + col;
+  var ic = k / CONV_KSIZE;
+  var kq = k % CONV_KSIZE;
+{% if implicit3d %}
+  var kd = kq / CONV_KSIZE_HW;
+  var khw = kq % CONV_KSIZE_HW;
+  var kh = khw / CONV_KERNEL_W;
+  var kw = khw % CONV_KERNEL_W;
+  var id = id0 + i32(kd * CONV_DILATION_D);
+{% else %}
+  var kh = kq / CONV_KERNEL_W;
+  var kw = kq % CONV_KERNEL_W;
+{% endif %}
+  var ih = ih0 + i32(kh * CONV_DILATION_H);
+  var iw = iw0 + i32(kw * CONV_DILATION_W);
+  // A tile column whose whole kernel window and K span are in bounds cannot
+  // take any of the element guards below. Hoist them into one uniform test so
+  // the interior loop carries a plain address instead of recomputing coordinates.
+  let interior = in_column
+    && k_idx + col + {{ bLoadWidth }}u <= K
+{% if implicit3d %}
+    && id0 >= 0 && id0 + i32((CONV_KERNEL_D - 1u) * CONV_DILATION_D) < CONV_IN_D
+{% endif %}
+    && ih0 >= 0 && ih0 + i32((CONV_KERNEL_H - 1u) * CONV_DILATION_H) < CONV_IN_H
+    && iw0 >= 0 && iw0 + i32((CONV_KERNEL_W - 1u) * CONV_DILATION_W) < CONV_IN_W;
+  if (interior) {
+    let colStep = i32(CONV_DILATION_W);
+    let rowStep = i32(CONV_DILATION_H) * CONV_IN_W;
+{% if implicit3d %}
+    let depthStep = i32(CONV_DILATION_D) * CONV_IN_H * CONV_IN_W;
+    let planeStep = CONV_IN_D * CONV_IN_H * CONV_IN_W;
+{% else %}
+    let planeStep = CONV_IN_H * CONV_IN_W;
+{% endif %}
+    // Advancing k already added one colStep, so each wrap rewinds that plus the taps it walked.
+    let kwWrap = colStep * i32(CONV_KERNEL_W) - rowStep;
+{% if implicit3d %}
+    let khWrap = rowStep * i32(CONV_KERNEL_H) - depthStep;
+    let kdWrap = depthStep * i32(CONV_KERNEL_D) - planeStep;
+    var addr = i32(b_base) + i32(ic) * planeStep + (id * CONV_IN_H + ih) * CONV_IN_W + iw;
+{% else %}
+    let khWrap = rowStep * i32(CONV_KERNEL_H) - planeStep;
+    var addr = i32(b_base) + i32(ic) * planeStep + ih * CONV_IN_W + iw;
+{% endif %}
+    for (var i = 0u; i < {{ bLoadWidth }}u; i = i + 1u) {
+      tile_B[row * TILE_K + col + i] = {{ operandScalar }}(xm[u32(addr)]);
+      addr = addr + colStep;
+      kw = kw + 1u;
+      if (kw == CONV_KERNEL_W) {
+        kw = 0u;
+        addr = addr - kwWrap;
+        kh = kh + 1u;
+        if (kh == CONV_KERNEL_H) {
+          kh = 0u;
+          addr = addr - khWrap;
+{% if implicit3d %}
+          kd = kd + 1u;
+          if (kd == CONV_KERNEL_D) {
+            kd = 0u;
+            addr = addr - kdWrap;
+          }
+{% endif %}
+        }
+      }
+    }
+    return;
+  }
+  for (var i = 0u; i < {{ bLoadWidth }}u; i = i + 1u) {
+    var value = {{ operandScalar }}(0.0);
+    // The K and N tails read as exact zeros, exactly as the materialized padded
+    // cols buffer does, so they contribute nothing to the dot product.
+    if (in_column && k < K{% if implicit3d %} && id >= 0 && id < CONV_IN_D{% endif %} && ih >= 0 && ih < CONV_IN_H && iw >= 0 && iw < CONV_IN_W) {
+{% if implicit3d %}
+      value = {{ operandScalar }}(xm[b_base + ((ic * u32(CONV_IN_D) + u32(id)) * u32(CONV_IN_H) + u32(ih)) * u32(CONV_IN_W) + u32(iw)]);
+{% else %}
+      value = {{ operandScalar }}(xm[b_base + (ic * u32(CONV_IN_H) + u32(ih)) * u32(CONV_IN_W) + u32(iw)]);
+{% endif %}
+    }
+    tile_B[row * TILE_K + col + i] = value;
+    k = k + 1u;
+    kw = kw + 1u;
+    iw = iw + i32(CONV_DILATION_W);
+    if (kw == CONV_KERNEL_W) {
+      kw = 0u;
+      iw = iw0;
+      kh = kh + 1u;
+      ih = ih + i32(CONV_DILATION_H);
+      if (kh == CONV_KERNEL_H) {
+        kh = 0u;
+        ih = ih0;
+{% if implicit3d %}
+        kd = kd + 1u;
+        id = id + i32(CONV_DILATION_D);
+        if (kd == CONV_KERNEL_D) {
+          kd = 0u;
+          id = id0;
+          ic = ic + 1u;
+        }
+{% else %}
+        ic = ic + 1u;
+{% endif %}
+      }
+    }
+  }
+{% else %}
+  for (var i = 0u; i < {{ bLoadWidth }}u; i = i + 1u) {
+    let k = k_idx + col + i;
+{% if operandScalar == "f16" %}
+    tile_B[row * TILE_K + col + i] = f16(xm[b_base + k * {{ nColsVar }} + b_col]);
+{% else %}
+    tile_B[row * TILE_K + col + i] = f32(xm[b_base + k * {{ nColsVar }} + b_col]);
+{% endif %}
+  }
+{% endif %}
+}
+{% endif %}
+{% set hasActivation = false %}
+{% set biasAdd = " + bv" if hasBias else "" %}
+{% macro store_val(valExpr, idxExpr) %}
+{% if hasActivation or hasZ %}
+epi({{ valExpr }}){% else %}
+{{ T }}({{ valExpr }}){% endif %}{% endmacro %}
+
+{% if (not useDirectMatrixStore or padded) and not splitKPartial and not fusedNarrowProjection %}
+fn storeOutput(offset: u32, {% if hasBias or polyphase %}row_base: u32, {% endif %}row: u32, col: u32, src_slot: u32, row_limit: i32{% if padded %}, col_anchor: u32{% endif %}) {
+  if (row_limit > 0 && row < u32(row_limit)) {
+    let col2 = col + 1u;
+{% if hasBias %}
+    let bv = {{ accScalar }}(bias[row_base + row]);
+{% endif %}
+{% if padded %}
+    // Padded GEMM: the last column tile runs past the logical N; only write
+    // columns inside the real output. Each subgroup-matrix column maps to a
+    // distinct y column (anchor + local), so the guards are independent.
+    if (col_anchor + col +  0u < N) { y[offset + row * N + col]        = {{ store_val("scratch[src_slot][0][row * 8u + col]" ~ biasAdd, "offset + row * N + col") }}; }
+    if (col_anchor + col +  8u < N) { y[offset + row * N + col +  8u]  = {{ store_val("scratch[src_slot][1][row * 8u + col]" ~ biasAdd, "offset + row * N + col + 8u") }}; }
+    if (col_anchor + col + 16u < N) { y[offset + row * N + col + 16u]  = {{ store_val("scratch[src_slot][2][row * 8u + col]" ~ biasAdd, "offset + row * N + col + 16u") }}; }
+    if (col_anchor + col + 24u < N) { y[offset + row * N + col + 24u]  = {{ store_val("scratch[src_slot][3][row * 8u + col]" ~ biasAdd, "offset + row * N + col + 24u") }}; }
+    if (col_anchor + col2 +  0u < N) { y[offset + row * N + col2]       = {{ store_val("scratch[src_slot][0][row * 8u + col2]" ~ biasAdd, "offset + row * N + col2") }}; }
+    if (col_anchor + col2 +  8u < N) { y[offset + row * N + col2 +  8u] = {{ store_val("scratch[src_slot][1][row * 8u + col2]" ~ biasAdd, "offset + row * N + col2 + 8u") }}; }
+    if (col_anchor + col2 + 16u < N) { y[offset + row * N + col2 + 16u] = {{ store_val("scratch[src_slot][2][row * 8u + col2]" ~ biasAdd, "offset + row * N + col2 + 16u") }}; }
+    if (col_anchor + col2 + 24u < N) { y[offset + row * N + col2 + 24u] = {{ store_val("scratch[src_slot][3][row * 8u + col2]" ~ biasAdd, "offset + row * N + col2 + 24u") }}; }
+{% else %}
+    y[offset + row * N + col]       = {{ store_val("scratch[src_slot][0][row * 8u + col]" ~ biasAdd, "offset + row * N + col") }};
+    y[offset + row * N + col + 8u]  = {{ store_val("scratch[src_slot][1][row * 8u + col]" ~ biasAdd, "offset + row * N + col + 8u") }};
+    y[offset + row * N + col + 16u] = {{ store_val("scratch[src_slot][2][row * 8u + col]" ~ biasAdd, "offset + row * N + col + 16u") }};
+    y[offset + row * N + col + 24u] = {{ store_val("scratch[src_slot][3][row * 8u + col]" ~ biasAdd, "offset + row * N + col + 24u") }};
+
+    y[offset + row * N + col2]       = {{ store_val("scratch[src_slot][0][row * 8u + col2]" ~ biasAdd, "offset + row * N + col2") }};
+    y[offset + row * N + col2 + 8u]  = {{ store_val("scratch[src_slot][1][row * 8u + col2]" ~ biasAdd, "offset + row * N + col2 + 8u") }};
+    y[offset + row * N + col2 + 16u] = {{ store_val("scratch[src_slot][2][row * 8u + col2]" ~ biasAdd, "offset + row * N + col2 + 16u") }};
+    y[offset + row * N + col2 + 24u] = {{ store_val("scratch[src_slot][3][row * 8u + col2]" ~ biasAdd, "offset + row * N + col2 + 24u") }};
+{% endif %}
+  }
+}
+
+{% endif %}
+@compute @workgroup_size({{ workgroupThreadsValue }}, 1, 1){{ " @subgroup_size(32)" if pinSubgroupSize32 else "" }}
+fn main(
+  @builtin(workgroup_id) workgroup_id: vec3<u32>,
+  @builtin(local_invocation_index) local_idx: u32,
+{% if (not useDirectMatrixStore or padded) and not splitKPartial and not fusedNarrowProjection %}
+  @builtin(subgroup_invocation_id) sg_id: u32,
+{% endif %}
+  @builtin(subgroup_size) sg_size: u32
+) {
+{% if splitKPartial %}
+  // z carries both axes, with split slices contiguous inside each batch image.
+  let slice = workgroup_id.z % SPLIT_K;
+  let batch = workgroup_id.z / SPLIT_K;
+  let b_base = batch * B_BATCH_STRIDE;
+  let c_base = slice * PARTIAL_SLICE_STRIDE + batch * PARTIAL_ROWS * PARTIAL_COLS;
+{% else %}
+  let batch = workgroup_id.z;
+  let b_base = batch * B_BATCH_STRIDE;
+  let c_base = batch * C_BATCH_STRIDE;
+{% endif %}
+  let a_global_base = workgroup_id.y * TILE_ROWS;
+  let b_global_base = workgroup_id.x * TILE_COLS;
+  let subtile_id = local_idx / sg_size;
+  let subtile_idx = subtile_id / {{ subgroupRowsValue }}u;
+  let subtile_idy = subtile_id % {{ subgroupRowsValue }}u;
+  let base_A = subtile_idy * SUB_ROWS;
+  let base_B = subtile_idx * SUB_COLS;
+
+  var matC00: subgroup_matrix_result<{{ accScalar }}, 8, 8>;
+  var matC01: subgroup_matrix_result<{{ accScalar }}, 8, 8>;
+  var matC02: subgroup_matrix_result<{{ accScalar }}, 8, 8>;
+  var matC03: subgroup_matrix_result<{{ accScalar }}, 8, 8>;
+  var matC10: subgroup_matrix_result<{{ accScalar }}, 8, 8>;
+  var matC11: subgroup_matrix_result<{{ accScalar }}, 8, 8>;
+  var matC12: subgroup_matrix_result<{{ accScalar }}, 8, 8>;
+  var matC13: subgroup_matrix_result<{{ accScalar }}, 8, 8>;
+
+{% if splitKPartial %}
+  let k_begin = slice * K_CHUNK;
+  let k_end = min(k_begin + K_CHUNK, {{ kLoopVar }});
+  for (var kidx = k_begin; kidx < k_end; kidx = kidx + TILE_K) {
+{% else %}
+  for (var kidx = 0u; kidx < {{ kLoopVar }}; kidx = kidx + TILE_K) {
+{% endif %}
+{% if not directMatrixInputs %}
+    loadSHMA(a_global_base, kidx, local_idx / 4u, local_idx % 4u);
+    loadSHMB(b_base, b_global_base, kidx, local_idx / {{ bKChunks }}u, local_idx % {{ bKChunks }}u);
+    workgroupBarrier();
+{% endif %}
+
+    for (var step = 0u; step < TILE_K; step = step + 8u) {
+{% set directInputs = directMatrixInputs is defined and directMatrixInputs %}
+      let matrix_a_offset = {% if directInputs %}(a_global_base + subtile_idy * SUB_ROWS) * K + kidx + step{% else %}subtile_idy * SUB_ROWS * TILE_K + step{% endif %};
+{% for r in range(2) %}
+      var matA{{ r }}: subgroup_matrix_left<{{ operandScalar }}, 8, 8> = subgroupMatrixLoad<subgroup_matrix_left<{{ operandScalar }}, 8, 8>, row_major>(&{{ "w" if directInputs else "tile_A" }}, matrix_a_offset{% if r > 0 %} + 8u * {{ "K" if directInputs else "TILE_K" }}{% endif %}, {{ "K" if directInputs else "TILE_K" }});
+{% endfor %}
+
+      let matrix_b_offset = {% if directInputs %}b_base + (kidx + step) * N + b_global_base + subtile_idx * SUB_COLS{% else %}subtile_idx * SUB_COLS * TILE_K + step{% endif %};
+{% for c in range(4) %}
+      var matB{{ c }}: subgroup_matrix_right<{{ operandScalar }}, 8, 8> = subgroupMatrixLoad<subgroup_matrix_right<{{ operandScalar }}, 8, 8>, {% if directInputs %}row_major{% else %}col_major{% endif %}>(&{{ "xm" if directInputs else "tile_B" }}, matrix_b_offset{% if c > 0 %} + {{ c * 8 }}u{% if not directInputs %} * TILE_K{% endif %}{% endif %}, {{ "N" if directInputs else "TILE_K" }});
+{% endfor %}
+
+      matC00 = subgroupMatrixMultiplyAccumulate(matA0, matB0, matC00);
+      matC01 = subgroupMatrixMultiplyAccumulate(matA0, matB1, matC01);
+      matC02 = subgroupMatrixMultiplyAccumulate(matA0, matB2, matC02);
+      matC03 = subgroupMatrixMultiplyAccumulate(matA0, matB3, matC03);
+      matC10 = subgroupMatrixMultiplyAccumulate(matA1, matB0, matC10);
+      matC11 = subgroupMatrixMultiplyAccumulate(matA1, matB1, matC11);
+      matC12 = subgroupMatrixMultiplyAccumulate(matA1, matB2, matC12);
+      matC13 = subgroupMatrixMultiplyAccumulate(matA1, matB3, matC13);
+    }
+{% if not directMatrixInputs %}
+    workgroupBarrier();
+{% endif %}
+  }
+
+{% if splitKPartial %}
+  // Raw partials, no bias and no epilogue — the reduce pass owns both. The
+  // scratch is whole tiles in both axes, so this needs none of the column or
+  // row guards the real output store carries.
+  let partial_offset = c_base + (a_global_base + base_A) * PARTIAL_COLS + b_global_base + base_B;
+  subgroupMatrixStore<row_major>(&y, partial_offset + 0u * PARTIAL_COLS +  0u, matC00, PARTIAL_COLS);
+  subgroupMatrixStore<row_major>(&y, partial_offset + 0u * PARTIAL_COLS +  8u, matC01, PARTIAL_COLS);
+  subgroupMatrixStore<row_major>(&y, partial_offset + 0u * PARTIAL_COLS + 16u, matC02, PARTIAL_COLS);
+  subgroupMatrixStore<row_major>(&y, partial_offset + 0u * PARTIAL_COLS + 24u, matC03, PARTIAL_COLS);
+  subgroupMatrixStore<row_major>(&y, partial_offset + 8u * PARTIAL_COLS +  0u, matC10, PARTIAL_COLS);
+  subgroupMatrixStore<row_major>(&y, partial_offset + 8u * PARTIAL_COLS +  8u, matC11, PARTIAL_COLS);
+  subgroupMatrixStore<row_major>(&y, partial_offset + 8u * PARTIAL_COLS + 16u, matC12, PARTIAL_COLS);
+  subgroupMatrixStore<row_major>(&y, partial_offset + 8u * PARTIAL_COLS + 24u, matC13, PARTIAL_COLS);
+{% elif useDirectMatrixStore %}
+{% if padded %}
+  // Padded N only needs guarded publication for the final partial-width tile.
+  // Full tiles can use the same direct collective stores as the aligned path;
+  // the branch is uniform because b_global_base depends only on workgroup_id.x.
+  if (b_global_base + TILE_COLS <= N) {
+{% endif %}
+  // Full f32 output tiles can be published by the subgroup-matrix collectives
+  // directly. With no epilogue this removes scratch traffic and three barriers.
+  // When an epilogue is present, publish the raw accumulators first, then apply
+  // bias, residual Z, and activation cooperatively after one storage barrier.
+  let matrix_c_offset = c_base + (a_global_base + base_A) * N + b_global_base + base_B;
+  subgroupMatrixStore<row_major>(&y, matrix_c_offset + 0u * N +  0u, matC00, N);
+  subgroupMatrixStore<row_major>(&y, matrix_c_offset + 0u * N +  8u, matC01, N);
+  subgroupMatrixStore<row_major>(&y, matrix_c_offset + 0u * N + 16u, matC02, N);
+  subgroupMatrixStore<row_major>(&y, matrix_c_offset + 0u * N + 24u, matC03, N);
+  subgroupMatrixStore<row_major>(&y, matrix_c_offset + 8u * N +  0u, matC10, N);
+  subgroupMatrixStore<row_major>(&y, matrix_c_offset + 8u * N +  8u, matC11, N);
+  subgroupMatrixStore<row_major>(&y, matrix_c_offset + 8u * N + 16u, matC12, N);
+  subgroupMatrixStore<row_major>(&y, matrix_c_offset + 8u * N + 24u, matC13, N);
+{% if hasBias or hasActivation or hasZ %}
+  storageBarrier();
+  for (var tile_idx = local_idx; tile_idx < TILE_ROWS * TILE_COLS; tile_idx += {{ workgroupThreadsValue }}u) {
+    let local_row = tile_idx / TILE_COLS;
+    let local_col = tile_idx % TILE_COLS;
+    let global_row = a_global_base + local_row;
+    let global_col = b_global_base + local_col;
+    let y_index = c_base + global_row * N + global_col;
+    var raw = f32(y[y_index]);
+{% if hasBias %}
+    raw += f32(bias[global_row]);
+{% endif %}
+    y[y_index] = {{ T }}(raw);
+  }
+{% endif %}
+{% if padded %}
+    return;
+  }
+{% endif %}
+{% endif %}
+{% if (not useDirectMatrixStore or padded) and not splitKPartial and not fusedNarrowProjection %}
+  // The four scratch banks are reused across the two row-groups, and each is written
+  // by a collective subgroupMatrixStore then read CROSS-LANE by storeOutput. Barriers
+  // give the reads visibility of the store AND stop the second row-group's store from
+  // clobbering the first's still-in-flight readback when a partial final M-tile
+  // diverges storeOutput's guard. Without both barriers the last valid row can be corrupted.
+  subgroupMatrixStore<row_major>(&scratch[subtile_id][0], 0u, matC00, 8u);
+  subgroupMatrixStore<row_major>(&scratch[subtile_id][1], 0u, matC01, 8u);
+  subgroupMatrixStore<row_major>(&scratch[subtile_id][2], 0u, matC02, 8u);
+  subgroupMatrixStore<row_major>(&scratch[subtile_id][3], 0u, matC03, 8u);
+  workgroupBarrier();
+  let row = sg_id / 4u;
+  let col = (sg_id % 4u) * 2u;
+  let row_base = a_global_base + base_A;
+  var matrix_c_offset = c_base + row_base * N + b_global_base + base_B;
+  var row_limit = i32(M) - i32(row_base);
+  storeOutput(matrix_c_offset, {% if hasBias or polyphase %}row_base, {% endif %}row, col, subtile_id, row_limit{% if padded %}, b_global_base + base_B{% endif %});
+  workgroupBarrier();
+
+  subgroupMatrixStore<row_major>(&scratch[subtile_id][0], 0u, matC10, 8u);
+  subgroupMatrixStore<row_major>(&scratch[subtile_id][1], 0u, matC11, 8u);
+  subgroupMatrixStore<row_major>(&scratch[subtile_id][2], 0u, matC12, 8u);
+  subgroupMatrixStore<row_major>(&scratch[subtile_id][3], 0u, matC13, 8u);
+  workgroupBarrier();
+  matrix_c_offset = matrix_c_offset + 8u * N;
+  row_limit = i32(M) - i32(row_base + 8u);
+  storeOutput(matrix_c_offset, {% if hasBias or polyphase %}row_base + 8u, {% endif %}row, col, subtile_id, row_limit{% if padded %}, b_global_base + base_B{% endif %});
+{% endif %}
+}

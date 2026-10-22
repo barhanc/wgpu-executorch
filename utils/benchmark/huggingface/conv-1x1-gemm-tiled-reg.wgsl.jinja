@@ -1,0 +1,345 @@
+// Register-blocked batched matrix product:
+// C[b] (M x N) = A (M x K) * B[b] (K x N). Workgroup lanes compute TM x TN
+// micro-tiles. The defaults use a 16x8 lane grid with an 8x4 micro-tile over a
+// 64x64 output tile. A is shared across the batch; B and C use the dispatch.z
+// batch offset. Accumulation is f32; an optional epilogue applies configured
+// bias, residual, and activation terms in the accumulator domain on store.
+// Every matrix dimension is bounds-checked.
+// f16 operands remain packed in workgroup memory and widen only at the FMA site;
+// the f32 accumulation order is retained while shared traffic is halved.
+//
+// Both shared tiles are stored as vec4 groups along the axis each lane consumes
+// contiguously: tileA groups four K values for one output row, tileB groups four
+// N columns for one K. One micro-tile step therefore reads TM + 4 vector words
+// instead of 4 * (TM + TN) scalars, so a shared word feeds four times as many
+// FMAs and the K loop runs four accumulation steps per iteration.
+{{ env.wgsl.resourceDeclarations }}
+{% set tileT = "f16" if usesF16 else "f32" %}
+{% set GEMM_BK = gemmKTile if gemmKTile is defined else 16 %}
+{% set GEMM_TM = gemmThreadRows if gemmThreadRows is defined else 8 %}
+{% set GEMM_WG_X = 16 %}
+{% set GEMM_BM = gemmMTile if gemmMTile is defined else 64 %}
+{% set GEMM_BN = 64 %}
+{% set GEMM_TN = 4 %}
+{% set GEMM_WG_Y = gemmWorkgroupY if gemmWorkgroupY is defined else (GEMM_BM / GEMM_TM)|int %}
+{% set components = ["x", "y", "z", "w"] %}
+const BK: u32 = {{ GEMM_BK }}u;
+const BM: u32 = {{ GEMM_BM }}u;
+const BN: u32 = {{ GEMM_BN }}u;
+const TM: u32 = {{ GEMM_TM }}u;
+const TN: u32 = {{ GEMM_TN }}u;
+const WG_X: u32 = {{ GEMM_WG_X }}u;
+const WG_SIZE: u32 = {{ GEMM_WG_X * GEMM_WG_Y }}u;
+// Vector words per tile row: A groups K, B groups N.
+const AK_VECS: u32 = BK / 4u;
+const BN_VECS: u32 = BN / 4u;
+
+// implicitIm2col leaves B unmaterialized. While staging a tile, the kernel
+// decodes each (k, n) column-matrix coordinate into a raw NCHW input address.
+// Overlapping windows may reread input values, trading address arithmetic and
+// repeated input loads for writing and rereading an expanded column matrix.
+{% set implicitIm2col = implicitIm2col is defined and implicitIm2col %}
+{% set splitKValue = splitK if splitK is defined else 1 %}
+{% set splitKPartial = splitKValue > 1 %}
+{% set kTiles = kTiles | default(0) %}
+{% set mPadded = mPadded | default(0) %}
+{% set nPadded = nPadded | default(0) %}
+{% set batchCount = batchCount | default(0) %}
+{% set gemmKLimit = "kEnd" if splitKPartial else "K" %}
+{% set implicitGatherMode = tunables.IMPLICIT_TILED_GATHER_MODE if tunables.IMPLICIT_TILED_GATHER_MODE is defined else 0 %}
+{% set implicitGatherWgSize = GEMM_WG_X * GEMM_WG_Y %}
+{% set implicitGatherColumnVecs = 16 %}
+{% set implicitGatherKChunks = (implicitGatherWgSize / implicitGatherColumnVecs)|int %}
+{% set implicitGatherDivides = implicitGatherWgSize % implicitGatherColumnVecs == 0 and implicitGatherKChunks > 0 and GEMM_BK % implicitGatherKChunks == 0 %}
+{% set useCarriedImplicitGather = implicitIm2col and implicitGatherMode == 1 and implicitGatherDivides %}
+{% if useCarriedImplicitGather %}
+{% set implicitGatherLoadWidth = (GEMM_BK / implicitGatherKChunks)|int %}
+{% endif %}
+{% if implicitIm2col %}
+const CONV_KERNEL_H: u32 = {{ convKernelH }}u;
+const CONV_KERNEL_W: u32 = {{ convKernelW }}u;
+const CONV_KSIZE: u32 = CONV_KERNEL_H * CONV_KERNEL_W;
+const CONV_STRIDE_H: u32 = {{ convStrideH }}u;
+const CONV_STRIDE_W: u32 = {{ convStrideW }}u;
+const CONV_DILATION_H: u32 = {{ convDilationH }}u;
+const CONV_DILATION_W: u32 = {{ convDilationW }}u;
+const CONV_PAD_TOP: i32 = {{ convPadTop }};
+const CONV_PAD_LEFT: i32 = {{ convPadLeft }};
+const CONV_IN_H: u32 = {{ convInH }}u;
+const CONV_IN_W: u32 = {{ convInW }}u;
+const CONV_OUT_W: u32 = {{ convOutW }}u;
+const CONV_IN_CHANNELS: u32 = {{ convInChannels }}u;
+{% endif %}
+{% if splitKPartial %}
+// Split-K publishes raw f32 partials. A second pass owns the bias, optional
+// epilogue, output cast, and logical-shape store.
+const SPLIT_K: u32 = {{ splitKValue }}u;
+const K_TILES: u32 = {{ kTiles }}u;
+const PARTIAL_ROWS: u32 = {{ mPadded }}u;
+const PARTIAL_COLS: u32 = {{ nPadded }}u;
+const PARTIAL_BATCH_STRIDE: u32 = PARTIAL_ROWS * PARTIAL_COLS;
+const PARTIAL_SLICE_STRIDE: u32 = {{ batchCount }}u * PARTIAL_BATCH_STRIDE;
+{% endif %}
+{% set emitConvStoreOut = not splitKPartial %}
+{% if emitConvStoreOut | default(true) %}fn store_out(m: u32, n: u32, yBase: u32, raw: f32{% if convPreloadBias | default(false) %}, rowBias: f32{% endif %}) {
+  if (m >= params.M || n >= params.N) {
+    return;
+  }
+  var v = raw;
+{% if hasBias %}
+  v = v + {% if convPreloadBias | default(false) %}rowBias{% else %}f32(bias[m]){% endif %};
+{% endif %}
+  y[yBase + m * params.N + n] = {{ T }}(v);
+}
+{% endif %}
+
+var<workgroup> tileA: array<array<vec4<{{ tileT }}>, AK_VECS>, BM>;
+var<workgroup> tileB: array<array<vec4<{{ tileT }}>, BN_VECS>, BK>;
+{% macro load_a_vec4(rowBase, columnBase, rowLimit, columnLimit) %}
+    for (var linear = li; linear < BM * AK_VECS; linear += WG_SIZE) {
+      let ar = linear / AK_VECS;
+      let ac4 = linear % AK_VECS;
+      let am = {{ rowBase }} + ar;
+      let ak = {{ columnBase }} + ac4 * 4u;
+      var av = vec4<{{ tileT }}>({{ tileT }}(0.0));
+      if (am < {{ rowLimit }}) {
+        let aBase = am * K + ak;
+        if (ak + 3u < {{ columnLimit }}) {
+          av = vec4<{{ tileT }}>({{ tileT }}(w[aBase]), {{ tileT }}(w[aBase + 1u]), {{ tileT }}(w[aBase + 2u]), {{ tileT }}(w[aBase + 3u]));
+        } else {
+          for (var t = 0u; t < 4u; t = t + 1u) {
+            if (ak + t < {{ columnLimit }}) {
+              av[t] = {{ tileT }}(w[aBase + t]);
+            }
+          }
+        }
+      }
+      tileA[ar][ac4] = av;
+    }{% endmacro %}
+{% macro load_b_vec4(rowBase, columnBase, rowLimit, columnLimit) %}
+    for (var linear = li; linear < BK * BN_VECS; linear += WG_SIZE) {
+      let br = linear / BN_VECS;
+      let bc4 = linear % BN_VECS;
+      let bk = {{ rowBase }} + br;
+      let bn = {{ columnBase }} + bc4 * 4u;
+      var bvec = vec4<{{ tileT }}>({{ tileT }}(0.0));
+      if (bk < {{ rowLimit }}) {
+        let bBase = xBatchBase + bk * N + bn;
+        if (bn + 3u < {{ columnLimit }}) {
+          bvec = vec4<{{ tileT }}>({{ tileT }}(xm[bBase]), {{ tileT }}(xm[bBase + 1u]), {{ tileT }}(xm[bBase + 2u]), {{ tileT }}(xm[bBase + 3u]));
+        } else {
+          for (var t = 0u; t < 4u; t = t + 1u) {
+            if (bn + t < {{ columnLimit }}) {
+              bvec[t] = {{ tileT }}(xm[bBase + t]);
+            }
+          }
+        }
+      }
+      tileB[br][bc4] = bvec;
+    }{% endmacro %}
+{% macro load_b_implicit_vec4(rowBase, columnBase, rowLimit, columnLimit) %}
+    for (var linear = li; linear < BK * BN_VECS; linear += WG_SIZE) {
+      let br = linear / BN_VECS;
+      let bc4 = linear % BN_VECS;
+      let bk = {{ rowBase }} + br;
+      var bvec = vec4<{{ tileT }}>({{ tileT }}(0.0));
+      if (bk < {{ rowLimit }}) {
+        // k flattens the input-channel and spatial-tap axes; n is the output position.
+        let ic = bk / CONV_KSIZE;
+        let kq = bk % CONV_KSIZE;
+        let kh = kq / CONV_KERNEL_W;
+        let kw = kq % CONV_KERNEL_W;
+        let planeBase = (batch * CONV_IN_CHANNELS + ic) * CONV_IN_H;
+        for (var t = 0u; t < 4u; t = t + 1u) {
+          let bn = {{ columnBase }} + bc4 * 4u + t;
+          if (bn < {{ columnLimit }}) {
+            let oh = bn / CONV_OUT_W;
+            let ow = bn % CONV_OUT_W;
+            let ih = i32(oh * CONV_STRIDE_H + kh * CONV_DILATION_H) - CONV_PAD_TOP;
+            let iw = i32(ow * CONV_STRIDE_W + kw * CONV_DILATION_W) - CONV_PAD_LEFT;
+            if (ih >= 0 && ih < i32(CONV_IN_H) && iw >= 0 && iw < i32(CONV_IN_W)) {
+              bvec[t] = {{ tileT }}(xm[(planeBase + u32(ih)) * CONV_IN_W + u32(iw)]);
+            }
+          }
+        }
+      }
+      tileB[br][bc4] = bvec;
+    }{% endmacro %}
+{% macro load_b_implicit_carried(rowBase, columnBase, rowLimit, columnLimit) %}
+    let bColVec = li / {{ implicitGatherKChunks }}u;
+    let bChunk = li % {{ implicitGatherKChunks }}u;
+    let bLocalK = bChunk * {{ implicitGatherLoadWidth }}u;
+    let bStartK = {{ rowBase }} + bLocalK;
+    let bCol0 = {{ columnBase }} + bColVec * 4u;
+    let bCols = vec4<u32>(bCol0, bCol0 + 1u, bCol0 + 2u, bCol0 + 3u);
+    let inColumn = bCols < vec4<u32>({{ columnLimit }});
+    let ih0 = vec4<i32>((bCols / vec4<u32>(CONV_OUT_W)) * CONV_STRIDE_H) - vec4<i32>(CONV_PAD_TOP);
+    let iw0 = vec4<i32>((bCols % vec4<u32>(CONV_OUT_W)) * CONV_STRIDE_W) - vec4<i32>(CONV_PAD_LEFT);
+    var carriedK = bStartK;
+    var carriedIc = carriedK / CONV_KSIZE;
+    let carriedKq = carriedK % CONV_KSIZE;
+    var carriedKh = carriedKq / CONV_KERNEL_W;
+    var carriedKw = carriedKq % CONV_KERNEL_W;
+    var carriedIh = ih0 + vec4<i32>(i32(carriedKh * CONV_DILATION_H));
+    var carriedIw = iw0 + vec4<i32>(i32(carriedKw * CONV_DILATION_W));
+
+    // Interior words can carry four addresses. Padding, the N tail, and the
+    // final K tile retain the coordinate-checked loop below and publish exact
+    // zeros.
+    let interior = all(inColumn)
+      && bStartK + {{ implicitGatherLoadWidth }}u <= {{ rowLimit }}
+      && all(ih0 >= vec4<i32>(0))
+      && all(ih0 + vec4<i32>(i32((CONV_KERNEL_H - 1u) * CONV_DILATION_H)) < vec4<i32>(i32(CONV_IN_H)))
+      && all(iw0 >= vec4<i32>(0))
+      && all(iw0 + vec4<i32>(i32((CONV_KERNEL_W - 1u) * CONV_DILATION_W)) < vec4<i32>(i32(CONV_IN_W)));
+    if (interior) {
+      let batchBase = batch * CONV_IN_CHANNELS * CONV_IN_H * CONV_IN_W;
+      let colStep = i32(CONV_DILATION_W);
+      let rowStep = i32(CONV_DILATION_H * CONV_IN_W);
+      let planeStep = i32(CONV_IN_H * CONV_IN_W);
+      let kwWrap = colStep * i32(CONV_KERNEL_W) - rowStep;
+      let khWrap = rowStep * i32(CONV_KERNEL_H) - planeStep;
+      var carriedAddress = vec4<i32>(i32(carriedIc) * planeStep) + carriedIh * vec4<i32>(i32(CONV_IN_W)) + carriedIw;
+      for (var i = 0u; i < {{ implicitGatherLoadWidth }}u; i = i + 1u) {
+        tileB[bLocalK + i][bColVec] = vec4<{{ tileT }}>(
+{% for component in components %}
+          {{ tileT }}(xm[batchBase + u32(carriedAddress.{{ component }})]){% if not loop.last %},{% endif %}
+{% endfor %}
+        );
+        carriedAddress = carriedAddress + vec4<i32>(colStep);
+        carriedKw = carriedKw + 1u;
+        if (carriedKw == CONV_KERNEL_W) {
+          carriedKw = 0u;
+          carriedAddress = carriedAddress - vec4<i32>(kwWrap);
+          carriedKh = carriedKh + 1u;
+          if (carriedKh == CONV_KERNEL_H) {
+            carriedKh = 0u;
+            carriedAddress = carriedAddress - vec4<i32>(khWrap);
+          }
+        }
+      }
+    } else {
+      for (var i = 0u; i < {{ implicitGatherLoadWidth }}u; i = i + 1u) {
+        var carriedValue = vec4<{{ tileT }}>({{ tileT }}(0.0));
+        let carriedRow = (batch * CONV_IN_CHANNELS + carriedIc) * CONV_IN_H;
+        let carriedOk = inColumn
+          & (carriedIh >= vec4<i32>(0)) & (carriedIh < vec4<i32>(i32(CONV_IN_H)))
+          & (carriedIw >= vec4<i32>(0)) & (carriedIw < vec4<i32>(i32(CONV_IN_W)));
+        if (carriedK < {{ rowLimit }}) {
+{% for component in components %}
+          if (carriedOk.{{ component }}) {
+            carriedValue.{{ component }} = {{ tileT }}(xm[(carriedRow + u32(carriedIh.{{ component }})) * CONV_IN_W + u32(carriedIw.{{ component }})]);
+          }
+{% endfor %}
+        }
+        tileB[bLocalK + i][bColVec] = carriedValue;
+        carriedK = carriedK + 1u;
+        carriedKw = carriedKw + 1u;
+        carriedIw = carriedIw + vec4<i32>(i32(CONV_DILATION_W));
+        if (carriedKw == CONV_KERNEL_W) {
+          carriedKw = 0u;
+          carriedIw = iw0;
+          carriedKh = carriedKh + 1u;
+          carriedIh = carriedIh + vec4<i32>(i32(CONV_DILATION_H));
+          if (carriedKh == CONV_KERNEL_H) {
+            carriedKh = 0u;
+            carriedIh = ih0;
+            carriedIc = carriedIc + 1u;
+          }
+        }
+      }
+    }{% endmacro %}
+
+@compute @workgroup_size({{ GEMM_WG_X }}, {{ GEMM_WG_Y }}, 1)
+fn main(
+  @builtin(workgroup_id) wg: vec3<u32>,
+  @builtin(local_invocation_id) lid: vec3<u32>
+) {
+  let M = params.M;
+  let K = params.K;
+  let N = params.N;
+  let mBase = wg.y * BM;
+  let nBase = wg.x * BN;
+{% if splitKPartial %}
+  // z carries a K slice within a batch image, matching the subgroup-matrix
+  // Conv split-K layout and the shared reduction pass.
+  let slice = wg.z % SPLIT_K;
+  let batch = wg.z / SPLIT_K;
+{% else %}
+  let batch = wg.z;
+{% endif %}
+{% if not implicitIm2col %}
+  let xBatchBase = batch * K * N;
+{% endif %}
+  let li = lid.y * WG_X + lid.x;
+
+  // The statically named accumulator vectors form TM independent FMA chains.
+{% for row in range(GEMM_TM) %}
+  var acc{{ row }} = vec{{ GEMM_TN }}<f32>(0.0);
+{% endfor %}
+
+{% if splitKPartial %}
+  // Partition whole BK-wide tiles by quotient boundaries. This keeps every
+  // slice within one tile of every other slice and creates no empty tail slice
+  // whenever K_TILES >= SPLIT_K (this route requires a stronger floor).
+  let kBegin = (slice * K_TILES / SPLIT_K) * BK;
+  let kEnd = min(((slice + 1u) * K_TILES / SPLIT_K) * BK, K);
+  let kCount = kEnd - kBegin;
+  let numTiles = (kCount + BK - 1u) / BK;
+{% else %}
+  let numTiles = (K + BK - 1u) / BK;
+{% endif %}
+  for (var kt: u32 = 0u; kt < numTiles; kt = kt + 1u) {
+{% if splitKPartial %}
+    let kBase = kBegin + kt * BK;
+{% else %}
+    let kBase = kt * BK;
+{% endif %}
+{{ load_a_vec4("mBase", "kBase", "M", gemmKLimit) }}
+{% if useCarriedImplicitGather %}
+{{ load_b_implicit_carried("kBase", "nBase", gemmKLimit, "N") }}
+{% elif implicitIm2col %}
+{{ load_b_implicit_vec4("kBase", "nBase", gemmKLimit, "N") }}
+{% else %}
+{{ load_b_vec4("kBase", "nBase", gemmKLimit, "N") }}
+{% endif %}
+    workgroupBarrier();
+    // One iteration consumes four K steps: TM vector words of A and four of B
+    // cover TM x TN x 4 FMAs.
+    let aRow = lid.y * TM;
+    for (var kv: u32 = 0u; kv < AK_VECS; kv = kv + 1u) {
+{% for row in range(GEMM_TM) %}
+      let av{{ row }} = vec4<f32>(tileA[aRow + {{ row }}u][kv]);
+{% endfor %}
+{% for sub in range(4) %}
+      let bv{{ sub }} = vec{{ GEMM_TN }}<f32>(tileB[kv * 4u + {{ sub }}u][lid.x]);
+{% for row in range(GEMM_TM) %}
+      acc{{ row }} += vec{{ GEMM_TN }}<f32>(av{{ row }}.{{ components[sub] }}) * bv{{ sub }};
+{% endfor %}
+{% endfor %}
+    }
+    workgroupBarrier();
+  }
+
+{% if splitKPartial %}
+  let m0 = mBase + lid.y * TM;
+  let n0 = nBase + lid.x * TN;
+  let partialBase = slice * PARTIAL_SLICE_STRIDE + batch * PARTIAL_BATCH_STRIDE;
+{% else %}
+  let yBatchBase = batch * M * N;
+  let m0 = mBase + lid.y * TM;
+  let n0 = nBase + lid.x * TN;
+{% endif %}
+{% for row in range(GEMM_TM) %}
+{% if convPreloadBias | default(false) %}
+  var rowBias{{ row }} = 0.0;
+  if (m0 + {{ row }}u < M) { rowBias{{ row }} = f32(bias[m0 + {{ row }}u]); }
+{% endif %}
+{% for column in range(GEMM_TN) %}
+{% if splitKPartial %}
+  y[partialBase + (m0 + {{ row }}u) * PARTIAL_COLS + n0 + {{ column }}u] = acc{{ row }}.{{ components[column] }};
+{% else %}
+  store_out(m0 + {{ row }}u, n0 + {{ column }}u, yBatchBase, acc{{ row }}.{{ components[column] }}{% if convPreloadBias | default(false) %}, rowBias{{ row }}{% endif %});
+{% endif %}
+{% endfor %}
+{% endfor %}}
