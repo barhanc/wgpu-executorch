@@ -80,7 +80,7 @@ const report = {
           ? 'Single-page controlled stage ablation; shuffled paired rounds, same device and model inputs. When enabled, GPU timestamp readback occurs outside wall timer. Additional sustained ABBA blocks compare continuous submissions and video-paced presentation.'
           : 'Instrument actual example loops with CPU clocks and GPU pass timestamps. Synthetic video; no camera permissions. Warmup frames excluded. Configurations run sequentially; model clock variation prevents interpreting total frame differences as presentation speedups.',
   warning: runntime
-    ? 'DepthART backbones differ (ours MNV4-S, ruNNtime MobileMamba-S); DepthART is a workload comparison, not an isolated runtime benchmark. YOLO26-N uses the same task/variant and input size.'
+    ? 'DepthART backbones differ (ours MNV4-S, ruNNtime TinyViM-S); DepthART is a workload comparison, not an isolated runtime benchmark. YOLO26-N uses the same task/variant and input size.'
     : hf
       ? 'Results are from one adapter/browser. Each variant is paired within a run; do not interpret between-run clock changes as kernel speedups. These adapters force selected templates and do not implement the full HF routing policy.'
       : 'Do not attribute frame-minus-model time entirely to pre/post shaders: CPU handling, GPU copies, presentation, queue/browser scheduling and callback delivery also contribute. Forced detections include a small diagnostic setup dispatch in postprocessing.',

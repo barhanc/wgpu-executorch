@@ -10,7 +10,7 @@
     "YOLO GPU compute totals are closer: ruNNtime about 9-12% slower, depending on run/input. Extra wall time also occurs outside compute (CPU preprocessing/encoding/decoding, transfers/readback and browser scheduling); do not assign the whole difference to convolution kernels.",
     "ruNNtime has useful native conv wins: first YOLO 3x3 RGB layer about 1.8x and the 16-to-8 output-channel 3x3 layer about 2.1x. Our tested YOLO attention matmuls and several larger convolutions are faster.",
     "Other native wins include tiny-spatial split-K pointwise, matrix-vector products and a 576-channel 5x5 depthwise case. These particular benchmark shapes occur in neither current model program. They are general operator opportunities, not a demonstrated model gain.",
-    "DepthART is not the same architecture: our export is MNV4-S, while the published ruNNtime small checkpoint is MobileMamba-S (source metadata relative_s_448). Our half weights are about 4.1 MB vs the 12.6 MB ruNNtime checkpoint. Timing both tasks is valid, but attributing their roughly 2x difference to the runtimes is not.",
+    "DepthART is not the same architecture: our export is MNV4-S, while the published ruNNtime small checkpoint is TinyViM-S (source metadata relative_s_448). Our half weights are about 4.1 MB vs the 12.6 MB ruNNtime checkpoint. Timing both tasks is valid, but attributing their roughly 2x difference to the runtimes is not.",
     "No production kernel, graph, shader registry or model artifact was changed. Native operators ran inside ruNNtime, with named exports added to a generated copy solely to access its unpublished core."
   ],
   "method": {
@@ -456,7 +456,9 @@
     "https://docs.swmansion.com/runntime/zoo/object-detection/",
     "https://docs.swmansion.com/runntime/zoo/depth-estimation/",
     "https://github.com/software-mansion/runntime/blob/bd640c76daa0e32fc86d44e152229db0ada461c7/packages/runntime/bench/kernels/conv.ab.ts",
-    "https://github.com/software-mansion/runntime/blob/bd640c76daa0e32fc86d44e152229db0ada461c7/packages/runntime/bench/kernels/matmul.ab.ts"
+    "https://github.com/software-mansion/runntime/blob/bd640c76daa0e32fc86d44e152229db0ada461c7/packages/runntime/bench/kernels/matmul.ab.ts",
+    "https://github.com/xuefeng-cvr/DepthART/blob/main/relative/models.py",
+    "https://github.com/xuefeng-cvr/DepthART/blob/main/relative/tinyvim/model/dpt.py"
   ],
   "verification": {
     "testsPassed": 209,
@@ -469,7 +471,7 @@
     {
       "baseline": "ceb53ab69858050a966ae1c1e8e8099a6c2f87a9",
       "method": "Published ruNNtime 0.1.0 vs our unchanged graphs; paired pixels-to-CPU-results and separate GPU compute times. See per-case model equivalence and numerical validation.",
-      "warning": "DepthART backbones differ (ours MNV4-S, ruNNtime MobileMamba-S); DepthART is a workload comparison, not an isolated runtime benchmark. YOLO26-N uses the same task/variant and input size.",
+      "warning": "DepthART backbones differ (ours MNV4-S, ruNNtime TinyViM-S); DepthART is a workload comparison, not an isolated runtime benchmark. YOLO26-N uses the same task/variant and input size.",
       "results": [
         {
           "task": "depth-estimation",
@@ -680,7 +682,7 @@
                   "correlationToOursF32": -0.9821613810045553
                 }
               ],
-              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime MobileMamba-S. Workload comparison only, not a runtime speedup claim."
+              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime TinyViM-S. Workload comparison only, not a runtime speedup claim."
             },
             {
               "name": "photograph-1280x720-crop",
@@ -822,7 +824,7 @@
                   "correlationToOursF32": -0.9772773215832661
                 }
               ],
-              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime MobileMamba-S. Workload comparison only, not a runtime speedup claim."
+              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime TinyViM-S. Workload comparison only, not a runtime speedup claim."
             },
             {
               "name": "gradient-native",
@@ -963,7 +965,7 @@
                   "correlationToOursF32": -0.49940992779342686
                 }
               ],
-              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime MobileMamba-S. Workload comparison only, not a runtime speedup claim."
+              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime TinyViM-S. Workload comparison only, not a runtime speedup claim."
             }
           ]
         },
@@ -2968,7 +2970,7 @@
     {
       "baseline": "ceb53ab69858050a966ae1c1e8e8099a6c2f87a9",
       "method": "Published ruNNtime 0.1.0 vs our unchanged graphs; paired pixels-to-CPU-results and separate GPU compute times. See per-case model equivalence and numerical validation.",
-      "warning": "DepthART backbones differ (ours MNV4-S, ruNNtime MobileMamba-S); DepthART is a workload comparison, not an isolated runtime benchmark. YOLO26-N uses the same task/variant and input size.",
+      "warning": "DepthART backbones differ (ours MNV4-S, ruNNtime TinyViM-S); DepthART is a workload comparison, not an isolated runtime benchmark. YOLO26-N uses the same task/variant and input size.",
       "results": [
         {
           "task": "depth-estimation",
@@ -3177,7 +3179,7 @@
                   "correlationToOursF32": -0.9821613810045553
                 }
               ],
-              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime MobileMamba-S. Workload comparison only, not a runtime speedup claim."
+              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime TinyViM-S. Workload comparison only, not a runtime speedup claim."
             },
             {
               "name": "photograph-1280x720-crop",
@@ -3321,7 +3323,7 @@
                   "correlationToOursF32": -0.9772773215832661
                 }
               ],
-              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime MobileMamba-S. Workload comparison only, not a runtime speedup claim."
+              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime TinyViM-S. Workload comparison only, not a runtime speedup claim."
             },
             {
               "name": "gradient-native",
@@ -3464,7 +3466,7 @@
                   "correlationToOursF32": -0.49940992779342686
                 }
               ],
-              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime MobileMamba-S. Workload comparison only, not a runtime speedup claim."
+              "modelEquivalence": "Different backbones: ours MNV4-S, ruNNtime TinyViM-S. Workload comparison only, not a runtime speedup claim."
             }
           ]
         },

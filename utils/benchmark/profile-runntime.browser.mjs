@@ -364,7 +364,7 @@ export async function profileRunntime(options) {
         runntimeOverOursGpu: gpu[1].median / gpu[0].median,
         validation: outputs.map(validate),
         modelEquivalence: depth
-          ? 'Different backbones: ours MNV4-S, ruNNtime MobileMamba-S. Workload comparison only, not a runtime speedup claim.'
+          ? 'Different backbones: ours MNV4-S, ruNNtime TinyViM-S. Workload comparison only, not a runtime speedup claim.'
           : 'Both YOLO26-N one-to-one head; same input size and detection options. ruNNtime decodes raw distances/logits on CPU; our export decodes boxes/scores on GPU.',
       });
     }
