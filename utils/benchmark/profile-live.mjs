@@ -1,4 +1,4 @@
-// Usage: node utils/benchmark/profile-live.mjs [--controlled | --narrow | --hf] [--no-timestamps] [results.json]
+// Usage: node utils/benchmark/profile-live.mjs [--controlled | --narrow | --hf | --runntime] [--no-timestamps] [results.json]
 // Narrow comparison: WGPU_KERNEL_BASELINE=<commit> npm run benchmark:narrow
 // Starts its own local Vite server and dedicated headless Chrome profile. It
 // never attaches to, closes, or changes an existing browser process/profile.
@@ -12,11 +12,25 @@ import { profileLivePipeline } from './profile-live.browser.mjs';
 import { profilePipelineStages } from './profile-stages.browser.mjs';
 import { profileNarrowConvolution } from './profile-narrow.browser.mjs';
 import { profileHuggingFace } from './profile-hf.browser.mjs';
+import { profileRunntime } from './profile-runntime.browser.mjs';
+import { prepareRunntimeAssets } from './runntime/setup.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const controlled = process.argv.includes('--controlled');
 const narrow = process.argv.includes('--narrow');
 const hf = process.argv.includes('--hf');
+const runntime = process.argv.includes('--runntime');
+let runntimeAssets;
+if (runntime) {
+  try {
+    await access(join(repo, 'utils/benchmark/runntime/node_modules/runntime/package.json'));
+  } catch {
+    throw new Error(
+      'Install isolated benchmark dependencies: npm ci --prefix utils/benchmark/runntime'
+    );
+  }
+  runntimeAssets = await prepareRunntimeAssets();
+}
 const baseline =
   process.env.WGPU_KERNEL_BASELINE ??
   execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
@@ -28,7 +42,7 @@ const output = resolve(
   outputPath ??
     join(
       repo,
-      `utils/benchmark/${hf ? 'hf' : narrow ? 'narrow' : controlled ? 'stage' : 'pipeline'}-results.json`
+      `utils/benchmark/${runntime ? 'runntime' : hf ? 'hf' : narrow ? 'narrow' : controlled ? 'stage' : 'pipeline'}-results.json`
     )
 );
 const candidates = process.env.WGPU_CHROME
@@ -56,16 +70,20 @@ let browser;
 let ws;
 const report = {
   baseline,
-  method: hf
-    ? 'Pinned Hugging Face Conv adaptation against archived baseline; see per-run method and numerical validation.'
-    : narrow
-      ? 'Compare raw 16-row/32-row convolutions and unchanged full model graphs against archived source. See per-run timing details.'
-      : controlled
-        ? 'Single-page controlled stage ablation; shuffled paired rounds, same device and model inputs. When enabled, GPU timestamp readback occurs outside wall timer. Additional sustained ABBA blocks compare continuous submissions and video-paced presentation.'
-        : 'Instrument actual example loops with CPU clocks and GPU pass timestamps. Synthetic video; no camera permissions. Warmup frames excluded. Configurations run sequentially; model clock variation prevents interpreting total frame differences as presentation speedups.',
-  warning: hf
-    ? 'Results are from one adapter/browser. Each variant is paired within a run; do not interpret between-run clock changes as kernel speedups. These adapters force selected templates and do not implement the full HF routing policy.'
-    : 'Do not attribute frame-minus-model time entirely to pre/post shaders: CPU handling, GPU copies, presentation, queue/browser scheduling and callback delivery also contribute. Forced detections include a small diagnostic setup dispatch in postprocessing.',
+  method: runntime
+    ? 'Published ruNNtime 0.1.0 vs our unchanged graphs; paired pixels-to-CPU-results and separate GPU compute times. See per-case model equivalence and numerical validation.'
+    : hf
+      ? 'Pinned Hugging Face Conv adaptation against archived baseline; see per-run method and numerical validation.'
+      : narrow
+        ? 'Compare raw 16-row/32-row convolutions and unchanged full model graphs against archived source. See per-run timing details.'
+        : controlled
+          ? 'Single-page controlled stage ablation; shuffled paired rounds, same device and model inputs. When enabled, GPU timestamp readback occurs outside wall timer. Additional sustained ABBA blocks compare continuous submissions and video-paced presentation.'
+          : 'Instrument actual example loops with CPU clocks and GPU pass timestamps. Synthetic video; no camera permissions. Warmup frames excluded. Configurations run sequentially; model clock variation prevents interpreting total frame differences as presentation speedups.',
+  warning: runntime
+    ? 'DepthART backbones differ (ours MNV4-S, ruNNtime MobileMamba-S); DepthART is a workload comparison, not an isolated runtime benchmark. YOLO26-N uses the same task/variant and input size.'
+    : hf
+      ? 'Results are from one adapter/browser. Each variant is paired within a run; do not interpret between-run clock changes as kernel speedups. These adapters force selected templates and do not implement the full HF routing policy.'
+      : 'Do not attribute frame-minus-model time entirely to pre/post shaders: CPU handling, GPU copies, presentation, queue/browser scheduling and callback delivery also contribute. Forced detections include a small diagnostic setup dispatch in postprocessing.',
   results: [],
 };
 try {
@@ -76,12 +94,31 @@ try {
   }
   server = await createServer({
     root: join(repo, 'example'),
+    ...(runntime
+      ? {
+          optimizeDeps: {
+            entries: [join(repo, 'utils/benchmark/runntime/entry.mjs')],
+            include: [
+              join(
+                repo,
+                'utils/benchmark/runntime/node_modules/runntime/dist/wgpu-benchmark-internals.mjs'
+              ),
+            ],
+          },
+        }
+      : {}),
     configFile: join(repo, 'example/vite.config.ts'),
     server: {
       host: '127.0.0.1',
       port: 0,
       strictPort: true,
-      fs: { allow: [repo, ...(baselineRepo ? [baselineRepo] : [])] },
+      fs: {
+        allow: [
+          repo,
+          ...(baselineRepo ? [baselineRepo] : []),
+          ...(runntimeAssets ? [runntimeAssets.directory] : []),
+        ],
+      },
     },
     plugins: [
       {
@@ -165,32 +202,45 @@ try {
   await call('Runtime.enable');
   const configurations = [];
   for (const task of narrow || hf ? ['yolo26-detection'] : ['depth-estimation', 'yolo26-detection'])
-    for (const precision of ['float32', 'float16'])
+    for (const precision of runntime ? ['float16'] : ['float32', 'float16'])
       configurations.push({ task, precision, presentation: 'current' });
-  if (!controlled && !narrow && !hf)
+  if (!controlled && !narrow && !hf && !runntime)
     configurations.push({
       task: 'yolo26-detection',
       precision: 'float16',
       presentation: 'current',
       detections: 64,
     });
-  if (!controlled && !narrow && !hf)
+  if (!controlled && !narrow && !hf && !runntime)
     for (const task of ['depth-estimation', 'yolo26-detection'])
       configurations.push({ task, precision: 'float16', presentation: 'preferred' });
   for (const config of configurations) {
     await call('Page.navigate', { url });
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const options = {
+      runntimeAssets,
       reportEndpoint: '/api/results',
       baselineRepo: baselineRepo?.replaceAll('\\', '/'),
       ...config,
       repo: repo.replaceAll('\\', '/'),
-      warmups: hf ? 8 : controlled ? 8 : 30,
-      samples: hf ? 51 : controlled ? 61 : 80,
+      warmups: runntime
+        ? Number(process.env.WGPU_BENCH_WARMUPS ?? 12)
+        : hf
+          ? 8
+          : controlled
+            ? 8
+            : 30,
+      samples: runntime
+        ? Number(process.env.WGPU_BENCH_SAMPLES ?? 61)
+        : hf
+          ? 51
+          : controlled
+            ? 61
+            : 80,
       timestamps,
     };
     const response = await call('Runtime.evaluate', {
-      expression: `(${(hf ? profileHuggingFace : narrow ? profileNarrowConvolution : controlled ? profilePipelineStages : profileLivePipeline).toString()})(${JSON.stringify(options)})`,
+      expression: `(${(runntime ? profileRunntime : hf ? profileHuggingFace : narrow ? profileNarrowConvolution : controlled ? profilePipelineStages : profileLivePipeline).toString()})(${JSON.stringify(options)})`,
       awaitPromise: true,
       returnByValue: true,
     });
@@ -202,7 +252,17 @@ try {
     const result = response.result.value;
     console.log(
       JSON.stringify({
-        results: result.results?.map(({ samples, ...summary }) => summary),
+        results: runntime
+          ? result.results.map(
+              ({ name, wallMs, gpuComputeMs, runntimeOverOursWall, runntimeOverOursGpu }) => ({
+                name,
+                wallMs: wallMs.map((x) => x.median),
+                gpuComputeMs: gpuComputeMs.map((x) => x.median),
+                runntimeOverOursWall,
+                runntimeOverOursGpu,
+              })
+            )
+          : result.results?.map(({ samples, ...summary }) => summary),
         task: result.task,
         precision: result.precision,
         presentation: result.presentation,

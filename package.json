@@ -11,6 +11,7 @@
     "benchmark:web": "vite utils/benchmark",
     "benchmark:live": "node utils/benchmark/profile-live.mjs",
     "benchmark:stages": "node utils/benchmark/profile-live.mjs --controlled",
+    "benchmark:runntime": "node utils/benchmark/profile-live.mjs --runntime",
     "benchmark:hf": "node utils/benchmark/profile-live.mjs --hf",
     "benchmark:narrow": "node utils/benchmark/profile-live.mjs --narrow",
     "format": "prettier --write .",

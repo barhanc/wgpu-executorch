@@ -1,0 +1,9 @@
+{
+  "name": "wgpu-executorch-runntime-comparison",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "runntime": "0.1.0",
+    "typegpu": "0.12.8"
+  }
+}
